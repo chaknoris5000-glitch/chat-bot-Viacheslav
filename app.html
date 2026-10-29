@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI-Администратор</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg: #f4f6f8; --text: #0f172a; --hint: #64748b;
+            --primary: #1e3a2f; --primary-light: #2F5B43;
+            --border: #e2e8f0; --card-bg: #ffffff; --success: #10b981; --danger: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        .top-header { padding: 20px; background: #fff; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; }
+        .header-left h1 { font-size: 22px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .header-left p { font-size: 13px; color: var(--hint); margin-top: 4px; }
+        .btn-support { background: #f1f5f9; color: var(--primary); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+        .swipe-container { flex: 1; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
+        .swipe-container::-webkit-scrollbar { display: none; }
+        .page { min-width: 100vw; height: 100%; scroll-snap-align: start; overflow-y: auto; padding: 20px 20px 100px 20px; display: flex; flex-direction: column; }
+
+        .card { background: var(--card-bg); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 16px; border: 1px solid var(--border); flex-shrink: 0; }
+        .card-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; color: var(--primary); }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .info-row:last-child { margin-bottom: 0; }
+        .info-label { color: var(--hint); }
+        .info-value { font-weight: 700; }
+        .progress-bg { background: #e2e8f0; border-radius: 10px; height: 8px; margin-top: 8px; overflow: hidden; }
+        .progress-fill { background: var(--success); height: 100%; border-radius: 10px; }
+
+        .plans-grid { display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
+        .plan-card { background: #fff; border: 2px solid var(--border); border-radius: 16px; padding: 20px; transition: 0.2s; cursor: pointer; }
+        .plan-card:active { border-color: var(--primary-light); background: #f8fdf9; }
+        .plan-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+        
+        .price-main { font-size: 24px; font-weight: 800; color: var(--primary); margin-bottom: 2px; }
+        .price-main span { font-size: 13px; font-weight: 500; color: var(--hint); }
+        .price-year { font-size: 20px; font-weight: 800; color: var(--success); margin-bottom: 4px; }
+        .price-year span { font-size: 13px; font-weight: 500; color: var(--hint); }
+        .price-note { font-size: 12px; color: var(--hint); margin-bottom: 12px; }
+        .price-note b { color: var(--text); }
+
+        .btn-cancel-sub { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: #f1f5f9; color: var(--hint); font-size: 14px; font-weight: 600; margin-top: 24px; cursor: pointer; flex-shrink: 0; }
+
+        .filters-wrapper { display: flex; justify-content: center; width: 100%; flex-shrink: 0; margin-bottom: 12px; overflow: hidden; }
+        .filters { display: flex; gap: 6px; padding: 0 10px 10px 10px; justify-content: center; width: 100%; }
+        .filter-btn { padding: 7px 10px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--hint); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+        .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        .tabs-status { display: flex; gap: 8px; margin-bottom: 16px; flex-shrink: 0; justify-content: center; }
+        .status-tab { flex: 1; text-align: center; padding: 10px 5px; background: #fff; border: 1px solid var(--border); border-radius: 10px; font-size: 12px; font-weight: 700; color: var(--hint); cursor: pointer; }
+        .status-tab.active { background: #e8f0ec; color: var(--primary); border-color: var(--primary-light); }
+
+        .lead-list-container { flex: 1; overflow-y: auto; margin-bottom: 70px; }
+        .lead-list { display: flex; flex-direction: column; gap: 10px; }
+        .lead-card { background: #fff; padding: 16px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.02); cursor: pointer; }
+        .lead-card:active { background: #f8fafc; }
+        .lead-top { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .lead-name { font-size: 15px; font-weight: 800; }
+        .lead-phone { font-size: 13px; color: var(--hint); }
+        .lead-service { display: inline-block; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-top: 8px; }
+
+        .sticky-bottom-btn { position: absolute; bottom: 80px; left: 20px; right: 20px; z-index: 50; }
+
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #fff; border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 10px 0 20px 0; z-index: 100; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--hint); font-size: 11px; font-weight: 600; cursor: pointer; }
+        .nav-item.active { color: var(--primary-light); font-weight: 800; }
+        .nav-item svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+        .modal-box { background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; }
+        .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 16px; color: var(--primary); }
+        
+        .btn { width: 100%; padding: 14px; border-radius: 10px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;}
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; }
+
+        .lead-info-row { font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;}
+        .lead-info-desc { font-size: 14px; background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 20px; color: var(--text); line-height: 1.4; }
+    </style>
+</head>
+<body>
+    <div class="top-header">
+        <div class="header-left">
+            <h1>AI-Администратор</h1>
+            <p id="greeting">Загрузка...</p>
+        </div>
+        <button class="btn-support" onclick="openSupportModal()">Помощь</button>
+    </div>
+
+    <div class="swipe-container" id="swipeContainer">
+        
+        <div class="page" id="page-account">
+            <div class="card">
+                <div class="card-title">Мой аккаунт</div>
+                <div class="info-row"><span class="info-label">Текущий тариф:</span><span class="info-value" id="acc-plan-name">—</span></div>
+                <div class="info-row"><span class="info-label">Статус:</span><span class="info-value" id="acc-status">—</span></div>
+                <div class="info-row"><span class="info-label">Действует до:</span><span class="info-value" id="acc-date">—</span></div>
+                <div class="info-row"><span class="info-label" id="total-leads-label">Всего заявок за период:</span><span class="info-value" id="acc-total-leads">0</span></div>
+                <div style="margin-top: 16px;">
+                    <div class="info-row" style="margin-bottom: 4px;"><span class="info-label" id="limit-label">Лимит заявок:</span><span class="info-value" id="acc-limit-text">0 / 100</span></div>
+                    <div class="progress-bg"><div class="progress-fill" id="acc-progress" style="width: 0%;"></div></div>
+                </div>
+            </div>
+
+            <div class="card-title" style="margin-left: 4px; margin-top: 10px; margin-bottom: 16px;">Выберите тариф</div>
+            <div class="plans-grid" id="plans-container"></div>
+            
+            <button class="btn-cancel-sub" onclick="openCancelModal()">Отменить подписку</button>
+        </div>
+
+        <div class="page" id="page-business" style="position: relative;">
+            <div class="filters-wrapper">
+                <div class="filters">
+                    <button class="filter-btn active" id="filter-btn-today" onclick="setTimeFilter('today', this)">Сегодня (0)</button>
+                    <button class="filter-btn" id="filter-btn-yesterday" onclick="setTimeFilter('yesterday', this)">Вчера (0)</button>
+                    <button class="filter-btn" id="filter-btn-week" onclick="setTimeFilter('week', this)">За неделю (0)</button>
+                    <button class="filter-btn" id="filter-btn-month" onclick="setTimeFilter('month', this)">За месяц (0)</button>
+                </div>
+            </div>
+
+            <div class="tabs-status">
+                <div class="status-tab active" onclick="setStatusFilter('all', this)">Все</div>
+                <div class="status-tab" onclick="setStatusFilter('new', this)">Новые</div>
+                <div class="status-tab" onclick="setStatusFilter('in_progress', this)">В работе</div>
+                <div class="status-tab" onclick="setStatusFilter('closed', this)">Выполнено</div>
+            </div>
+            
+            <div class="lead-list-container">
+                <div class="lead-list" id="business-leads-list"></div>
+            </div>
+            
+            <div class="sticky-bottom-btn">
+                <button class="btn btn-primary" onclick="goToCRM()">Открыть расширенную CRM</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="bottom-nav" id="bottom-nav">
+        <div class="nav-item active" onclick="scrollToPage(0)">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Аккаунт
+        </div>
+        <div class="nav-item" onclick="scrollToPage(1)">
+            <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Мой бизнес
+        </div>
+    </div>
+
+    <div id="planModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title" id="modal-plan-name">Тариф</div>
+            <div style="margin-bottom: 20px;">
+                <div class="price-main" id="modal-price-main">—</div>
+                <div id="modal-year-block" style="display: none;">
+                    <div class="price-year" id="modal-price-year">—</div>
+                    <div class="price-note" id="modal-year-note">—</div>
+                </div>
+            </div>
+            <ul id="modal-plan-features" style="margin-bottom: 24px; list-style: none; padding-left: 0;"></ul>
+            
+            <div id="modal-pay-buttons">
+                <button class="btn btn-primary" onclick="payPlan('month')">Оплатить <span id="btn-month-price">0</span> ₽ (1 месяц)</button>
+                <button class="btn btn-primary" style="background: var(--success);" onclick="payPlan('year')">Оплатить <span id="btn-year-price">0</span> ₽ (12 месяцев)</button>
+            </div>
+            <button id="modal-connect-btn" class="btn btn-primary" style="display: none;" onclick="connectResultPlan()">Подключить</button>
+
+            <button class="btn btn-outline" onclick="closeModal('planModal')">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="leadModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title" id="modal-lead-name">Имя клиента</div>
+            <div class="lead-info-row">📞 <span id="modal-lead-phone">—</span></div>
+            <div class="lead-info-row" style="color: var(--hint);">🛠 Услуга: <span id="modal-lead-service">—</span></div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--hint); margin-bottom: 6px; margin-top: 16px;">Запрос:</div>
+            <div class="lead-info-desc" id="modal-lead-problem">Описание...</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <a id="modal-btn-call" href="#" class="btn" style="background: #eff6ff; color: #1d4ed8; margin: 0; flex: 1;">📞 Позвонить</a>
+                <a id="modal-btn-tg" href="#" target="_blank" class="btn" style="background: #e0f2fe; color: #0284c7; margin: 0; flex: 1;">✈️ Telegram</a>
+            </div>
+            <button class="btn btn-outline" onclick="closeModal('leadModal')">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="cancelModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">Отмена подписки</div>
+            <p style="font-size: 14px; color: var(--hint); margin-bottom: 16px;">Нам жаль, что вы уходите. Пожалуйста, напишите, что вас не устроило:</p>
+            <div class="form-group"><textarea id="cancel-reason" rows="3" placeholder="Ваш отзыв..."></textarea></div>
+            <button class="btn" style="background:#f1f5f9; color:var(--text);" onclick="submitCancel()">Отправить и отменить</button>
+            <button class="btn btn-outline" onclick="closeModal('cancelModal')">Остаться</button>
+        </div>
+    </div>
+
+    <div id="supportModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">Поддержка</div>
+            <p style="font-size: 14px; color: var(--hint); margin-bottom: 16px;">Опишите вашу проблему, и мы свяжемся с вами.</p>
+            <div class="form-group"><textarea id="support-text" rows="4" placeholder="Ваше сообщение..."></textarea></div>
+            <button class="btn btn-primary" onclick="sendSupport()">Отправить</button>
+            <button class="btn btn-outline" onclick="closeModal('supportModal')">Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ozutjnwextahorvzdbpl.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96dXRqbndleHRhaG9ydnpkYnBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2MTQ3MzUsImV4cCI6MjEwNzE5MDczNX0.8L3adhQ9gUR5iSly1afSQN6HeEhkj9QQ4NtUyZUQx28';
+        const ADMIN_TELEGRAM_ID = 5818548555; 
+        
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+               const TARIFFS = {
+            'start': { 
+                name: 'Старт', month: 1990, year: 17900, monthIfYear: 1490, limit: 100,
+                features: [
+                    'До 100 заявок в месяц (автоматический сбор)',
+                    'Работает 24/7 без выходных',
+                    'Уведомления о новых заявках в Telegram',
+                    'Встроенная мини-CRM для управления заявками',
+                    'До обучения на ваших материалах: услуги, цены, адреса',
+                    'Автоматическая ежедневная, еженедельная и месячная отчетность в Excel',
+                    'Подключение ваших внешних систем по API'
+                ] 
+            },
+            'business': { 
+                name: 'Бизнес', month: 2490, year: 23900, monthIfYear: 1990, limit: 300,
+                features: [
+                    'До 300 заявок в месяц (автоматический сбор)',
+                    'Работает 24/7 без выходных',
+                    'Встроенная мини-CRM для управления заявками',
+                    'До обучения на ваших материалах: услуги, цены, адреса',
+                    'Автоматическая ежедневная, еженедельная и месячная отчетность в Excel',
+                    'Подключение ваших внешних систем по API'
+                ] 
+            },
+            'unlimited': { 
+                name: 'Безлимит', month: 4990, year: 47900, monthIfYear: 3990, limit: 99999,
+                features: [
+                    'Неограниченное количество заявок (автоматический сбор)',
+                    'Работает 24/7 без выходных',
+                    'Приоритетная поддержка (отвечаем быстрее всех)',
+                    'Встроенная мини-CRM для управления заявками',
+                    'До обучения на ваших материалах: услуги, цены, адреса',
+                    'Автоматическая ежедневная, еженедельная и месячная отчетность в Excel',
+                    'Подключение ваших внешних систем по API'
+                ] 
+            },
+            'result': { 
+                name: 'За результат', month: 25, year: 0, monthIfYear: 25, limit: 99999,
+                features: [
+                    'Оплата только за реальные заявки (25 ₽ за штуку, автоматический сбор)',
+                    'Работает 24/7 без выходных',
+                    'Прозрачный отчет в конце месяца',
+                    'Встроенная мини-CRM для управления заявками',
+                    'До обучения на ваших материалах: услуги, цены, адреса',
+                    'Автоматическая ежедневная, еженедельная и месячная отчетность в Excel',
+                    'Подключение ваших внешних систем по API'
+                ] 
+            }
+        };
+        let myClient = null;
+        let myLeads = []; 
+        let currentPlanKey = null;
+        let filterTime = 'today'; 
+        let filterStatus = 'all';
+
+        function scrollToPage(index) {
+            const container = document.getElementById('swipeContainer');
+            container.scrollTo({ left: index * window.innerWidth, behavior: 'smooth' });
+        }
+
+        document.getElementById('swipeContainer').addEventListener('scroll', () => {
+            const container = document.getElementById('swipeContainer');
+            const scrollLeft = container.scrollLeft;
+            const width = window.innerWidth;
+            
+            if (scrollLeft < width / 2) {
+                document.querySelectorAll('.nav-item')[0].classList.add('active');
+                document.querySelectorAll('.nav-item')[1].classList.remove('active');
+            } else {
+                document.querySelectorAll('.nav-item')[0].classList.remove('active');
+                document.querySelectorAll('.nav-item')[1].classList.add('active');
+            }
+        });
+
+        async function init() {
+            const user = tg.initDataUnsafe?.user;
+            if (!user) return;
+            document.getElementById('greeting').innerText = `Привет, ${user.first_name}!`;
+            
+            try {
+                // 1. Получаем данные клиента (через сервер, из loans-bot)
+                const resClients = await fetch(`/api/get-client-by-owner?owner_telegram_id=${user.id}`);
+                const allClients = await resClients.json();
+                myClient = allClients.find(c => c.owner_telegram_id === user.id);
+
+                if (user.id === ADMIN_TELEGRAM_ID) {
+                    // Если зашел Админ (Тильда)
+                    const resLeads = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=id.desc`, { 
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } 
+                    });
+                    myLeads = await resLeads.json();
+                    setupAdminUI(allClients);
+                } else if (myClient) {
+                    // Если зашел клиент (Лиза) — грузим его заявки через сервер
+                    const resLeads = await fetch(`/api/get-leads?client_id=${myClient.client_id}`);
+                    myLeads = await resLeads.json();
+                    setupClientUI(myClient);
+                }
+                renderPlans();
+            } catch (e) { console.error(e); }
+        }
+
+        function setupClientUI(client) {
+            const paidUntil = new Date(client.paid_until);
+            document.getElementById('acc-plan-name').innerText = client.business_name || 'Бизнес';
+            document.getElementById('acc-date').innerText = paidUntil.toLocaleDateString('ru-RU');
+            document.getElementById('acc-status').innerText = (paidUntil > new Date()) ? 'Активен' : 'Истек';
+            document.getElementById('acc-total-leads').innerText = myLeads.length;
+            
+            const currentTariff = TARIFFS['business']; 
+            document.getElementById('acc-limit-text').innerText = `${myLeads.length} / ${currentTariff.limit}`;
+            document.getElementById('acc-progress').style.width = Math.min((myLeads.length/currentTariff.limit)*100, 100) + '%';
+
+            updateFilterCounts();
+            renderLeads();
+        }
+
+        function setupAdminUI(allClients) {
+            document.getElementById('acc-plan-name').innerText = 'Админ';
+            document.getElementById('acc-status').innerText = 'Платформа';
+            document.getElementById('acc-date').innerText = 'Бессрочно';
+            document.getElementById('acc-total-leads').innerText = myLeads.length;
+            document.getElementById('limit-label').innerText = 'Всего клиентов:';
+            document.getElementById('acc-limit-text').innerText = allClients.length;
+            document.getElementById('acc-progress').style.width = '100%';
+
+            updateFilterCounts();
+            renderLeads();
+        }
+
+        function updateFilterCounts() {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+            const week = new Date(today); week.setDate(week.getDate() - 7);
+            const month = new Date(today); month.setMonth(month.getMonth() - 1);
+
+            let counts = { today: 0, yesterday: 0, week: 0, month: 0 };
+            myLeads.forEach(lead => {
+                const d = new Date(lead.created_at);
+                if (d >= today) counts.today++;
+                if (d >= yesterday && d < today) counts.yesterday++;
+                if (d >= week) counts.week++;
+                if (d >= month) counts.month++;
+            });
+
+            document.getElementById('filter-btn-today').innerText = `Сегодня (${counts.today})`;
+            document.getElementById('filter-btn-yesterday').innerText = `Вчера (${counts.yesterday})`;
+            document.getElementById('filter-btn-week').innerText = `За неделю (${counts.week})`;
+            document.getElementById('filter-btn-month').innerText = `За месяц (${counts.month})`;
+        }
+
+        function renderLeads() {
+            const list = document.getElementById('business-leads-list');
+            list.innerHTML = '';
+            
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+            const week = new Date(today); week.setDate(week.getDate() - 7);
+            const month = new Date(today); month.setMonth(month.getMonth() - 1);
+
+            let filtered = myLeads.filter(lead => {
+                if (filterStatus !== 'all' && lead.status !== filterStatus) return false;
+                const d = new Date(lead.created_at);
+                if (filterTime === 'today' && d < today) return false;
+                if (filterTime === 'yesterday' && (d < yesterday || d >= today)) return false;
+                if (filterTime === 'week' && d < week) return false;
+                if (filterTime === 'month' && d < month) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<p style="color:var(--hint); text-align:center; padding:20px;">Нет заявок</p>';
+                return;
+            }
+
+            filtered.forEach(lead => {
+                const el = document.createElement('div');
+                el.className = 'lead-card';
+                el.onclick = () => openLeadModal(lead.id);
+                
+                let statusColor = lead.status === 'new' ? '#eff6ff' : (lead.status === 'in_progress' ? '#fffbeb' : '#f0fdf4');
+                let statusTextColor = lead.status === 'new' ? '#1d4ed8' : (lead.status === 'in_progress' ? '#b45309' : '#15803d');
+                let statusText = lead.status === 'new' ? 'Новая' : (lead.status === 'in_progress' ? 'В работе' : 'Выполнено');
+
+                el.innerHTML = `
+                    <div class="lead-top">
+                        <div class="lead-name">${lead.name || 'Без имени'}</div>
+                        <div style="background:${statusColor}; color:${statusTextColor}; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${statusText}</div>
+                    </div>
+                    <div class="lead-phone">📞 ${lead.phone || '—'}</div>
+                    <div class="lead-service">${lead.service || 'Услуга не указана'}</div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function setTimeFilter(time, btn) {
+            filterTime = time;
+            document.querySelectorAll('.filters .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderLeads();
+        }
+
+        function setStatusFilter(status, btn) {
+            filterStatus = status;
+            document.querySelectorAll('.status-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderLeads();
+        }
+
+        function renderPlans() {
+            const container = document.getElementById('plans-container');
+            container.innerHTML = '';
+            Object.keys(TARIFFS).forEach(key => {
+                const t = TARIFFS[key];
+                const card = document.createElement('div');
+                card.className = 'plan-card';
+                card.onclick = () => openPlanModal(key);
+                
+                let yearHtml = '';
+                if (t.year > 0) {
+                    yearHtml = `
+                        <div class="price-year">${t.monthIfYear} ₽ <span>/ мес</span></div>
+                        <div class="price-note">При оплате за год: <b>${t.year} ₽</b></div>
+                    `;
+                } else {
+                    yearHtml = `<div class="price-note" style="margin-top:8px;">Оплата по факту заявок</div>`;
+                }
+
+                let priceHtml = '';
+                if (key === 'result') {
+                    priceHtml = `<div class="price-main">${t.month} ₽ <span>/ заявка</span></div>`;
+                } else {
+                    priceHtml = `<div class="price-main">${t.month} ₽ <span>/ мес</span></div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="plan-name">${t.name}</div>
+                    ${priceHtml}
+                    ${yearHtml}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openPlanModal(key) {
+            currentPlanKey = key;
+            const t = TARIFFS[key];
+            document.getElementById('modal-plan-name').innerText = t.name;
+            
+            const payButtons = document.getElementById('modal-pay-buttons');
+            const connectBtn = document.getElementById('modal-connect-btn');
+            const yearBlock = document.getElementById('modal-year-block');
+
+            if (key === 'result') {
+                document.getElementById('modal-price-main').innerText = `25 ₽ / заявка`;
+                yearBlock.style.display = 'none';
+                payButtons.style.display = 'none';
+                connectBtn.style.display = 'flex';
+            } else {
+                document.getElementById('modal-price-main').innerText = `${t.month} ₽ / мес`;
+                yearBlock.style.display = 'block';
+                document.getElementById('modal-price-year').innerText = `${t.monthIfYear} ₽ / мес`;
+                document.getElementById('modal-year-note').innerText = `При оплате за год: ${t.year} ₽`;
+                
+                payButtons.style.display = 'block';
+                connectBtn.style.display = 'none';
+                document.getElementById('btn-month-price').innerText = t.month;
+                document.getElementById('btn-year-price').innerText = t.year;
+            }
+
+            const ul = document.getElementById('modal-plan-features');
+            ul.innerHTML = t.features.map(f => `<li style="font-size:14px; margin-bottom:8px; display:flex; gap:8px;"><span style="color:var(--success); font-weight:bold;">✓</span> ${f}</li>`).join('');
+            
+            document.getElementById('planModal').style.display = 'flex';
+        }
+
+        function openLeadModal(id) {
+            const lead = myLeads.find(l => l.id === id);
+            if (!lead) return;
+
+            document.getElementById('modal-lead-name').innerText = lead.name || 'Без имени';
+            document.getElementById('modal-lead-phone').innerText = lead.phone || '—';
+            document.getElementById('modal-lead-service').innerText = lead.service || 'Не указана';
+            document.getElementById('modal-lead-problem').innerText = lead.problem || 'Нет описания';
+
+            const cleanPhone = (lead.phone || '').replace(/\D/g, '');
+            document.getElementById('modal-btn-call').href = `tel:${lead.phone || ''}`;
+            document.getElementById('modal-btn-tg').href = cleanPhone.length > 5 ? `https://t.me/+${cleanPhone}` : '#';
+
+            document.getElementById('leadModal').style.display = 'flex';
+        }
+
+        function openCancelModal() { document.getElementById('cancelModal').style.display = 'flex'; }
+        function openSupportModal() { document.getElementById('supportModal').style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        async function payPlan(period) {
+            const t = TARIFFS[currentPlanKey];
+            const amount = period === 'year' ? t.year : t.month;
+            const user = tg.initDataUnsafe?.user;
+            
+            try {
+                const res = await fetch('/api/create-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        chat_id: user.id, 
+                        tariff: currentPlanKey, 
+                        period: period 
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.ok && data.url) {
+                    tg.openLink(data.url);
+                    closeModal('planModal');
+                } else {
+                    alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            } catch (e) {
+                alert('Ошибка сети при создании платежа');
+            }
+        }
+
+        async function connectResultPlan() {
+            const user = tg.initDataUnsafe?.user;
+            
+            try {
+                const res = await fetch('/api/connect-result', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        chat_id: user.id, 
+                        name: user.first_name,
+                        manager_id: ADMIN_TELEGRAM_ID 
+                    })
+                });
+                
+                if (res.ok) {
+                    alert('Тариф "За результат" подключен! Владелец получил уведомление.');
+                    closeModal('planModal');
+                } else {
+                    alert('Ошибка при подключении тарифа');
+                }
+            } catch (e) {
+                alert('Ошибка сети при подключении');
+            }
+        }
+
+        function submitCancel() { alert('Отменено'); closeModal('cancelModal'); }
+        
+        async function sendSupport() {
+            const text = document.getElementById('support-text').value;
+            if(!text) return;
+            await fetch('/api/support', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, user_id: tg.initDataUnsafe.user.id, name: tg.initDataUnsafe.user.first_name }) });
+            alert('Отправлено!');
+            closeModal('supportModal');
+        }
+
+        function goToCRM() { window.location.href = '/crm?auth_success=1&telegram_id=' + tg.initDataUnsafe.user.id; }
+
+        init();
+    </script>
+</body>
+</html>
