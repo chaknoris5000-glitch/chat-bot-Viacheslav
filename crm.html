@@ -449,45 +449,23 @@
                 document.getElementById('crm-container').style.display = 'flex';
                 
                 const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
-                let isOwner = false;
                 
-                // Если не админ, проверяем, есть ли ID в базе LOANS как владелец
-                if (!isAdmin) {
-                    try {
-                        const r = await fetch(`/api/get-client-by-owner?owner_telegram_id=${currentUserTgId}`);
-                        const rows = await r.json();
-                        if (rows && rows.length > 0) {
-                            isOwner = true;
-                            window.currentClientId = rows[0].client_id;
-                        }
-                    } catch(e) { console.error(e); }
+                // Если открыт по ссылке с параметром view_client (Админ смотрит чужую CRM)
+                if (urlParams.get('view_client')) {
+                    window.currentClientId = urlParams.get('view_client');
                 }
                 
-                if (!isAdmin && !isOwner) {
-                    // ЗАГЛУШКА
-                    document.querySelector('.logo').innerHTML = 'Кабинет';
-                    const addBtn = document.getElementById('add-client-btn');
-                    if (addBtn) addBtn.style.display = 'none';
-                    const addBtnMobile = document.getElementById('add-client-btn-mobile');
-                    if (addBtnMobile) addBtnMobile.style.display = 'none';
-                    
-                    document.querySelector('.main-content').innerHTML = '<div style="text-align:center; padding:50px;"><h2>Доступ только для владельца</h2><p>Пожалуйста, войдите под аккаунтом администратора или владельца.</p></div>';
-                    document.querySelector('.sidebar').style.display = 'none';
-                    document.querySelector('.header-actions-mobile').style.display = 'none';
-                    return;
-                }
-                
-                // Выбираем базу
+                // Выбираем базу для запросов
                 if (isAdmin && !window.currentClientId) {
-                    // Ты как админ без параметров — грузим Tilda
                     SUPABASE_URL = TILDA_URL;
                     SUPABASE_KEY = TILDA_KEY;
                 } else {
-                    // Если это Лиза (или ты в режиме view_client) — грузим Loans
                     SUPABASE_URL = LOANS_URL;
                     SUPABASE_KEY = LOANS_KEY;
                 }
                 
+                // ЗАГЛУШКУ УБИРАЕМ. Пускаем всех. 
+                // Если это чужой — loadLeads вернет пустоту.
                 loadLeads();
                 window.history.replaceState({}, document.title, "/crm");
             }
@@ -499,32 +477,39 @@
             try {
                 let data = [];
                 
-                // Если ты Админ и смотришь Tilda (без view_client)
                 if (currentUserTgId === ADMIN_TELEGRAM_ID && !window.currentClientId) {
+                    // Админ без параметров — грузим Tilda
                     const res = await fetch(`${TILDA_URL}/rest/v1/leads?select=*&order=id.desc`, {
                         headers: { 'apikey': TILDA_KEY, 'Authorization': `Bearer ${TILDA_KEY}` }
                     });
                     data = await res.json();
                 } else {
-                    // Иначе — грузим через сервер из loans-bot
+                    // Остальные — грузим через сервер (loans-bot)
+                    // Если window.currentClientId не задан, сервер вернет пустоту (или ошибку, которую мы обработаем)
                     let url = `/api/get-leads`;
                     if (window.currentClientId) {
                         url += `?client_id=${window.currentClientId}`;
-                    } else {
-                        url += `?client_id=NONE`;
                     }
+                    
                     const res = await fetch(url);
                     data = await res.json();
+                    
+                    // Если сервер вернул не массив (ошибку), делаем пустой массив
+                    if (!Array.isArray(data)) data = [];
                 }
                 
-                allLeads = Array.isArray(data) ? data : [];
+                allLeads = data;
                 updateStats(allLeads);
                 renderKanban(allLeads);
                 renderList(allLeads);
                 renderClientBase(allLeads);
                 renderTasks(allLeads);
                 populateTaskClientSelect(allLeads);
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error(e); 
+                allLeads = [];
+                updateStats(allLeads);
+            }
         }
 
         // RENDER
