@@ -1166,33 +1166,8 @@ app.post('/telegram-webhook', async (req, res) => {
   }
 });
 
-app.get('/crawl', async (req, res) => {
-  try {
-    // Используем бесплатный парсер Jina AI Reader
-    const r = await fetch(`https://r.jina.ai/${SITE_TO_CRAWL}`);
-    const text = await r.text();
-    
-    if (!text || text.includes('error')) {
-      return res.status(500).json({ error: 'Jina Reader вернул пустоту или ошибку' });
-    }
-
-    const chunks = [];
-    for (let i = 0; i < text.length; i += 1000) chunks.push(text.slice(i, i + 1000));
-
-    let saved = 0;
-    for (const chunk of chunks) {
-      try {
-        const embedding = await getEmbedding(chunk);
-        await saveDocument(chunk, embedding, SITE_TO_CRAWL);
-        saved++;
-      } catch (e) { console.log('Ошибка сохранения чанка:', e.message); }
-    }
-    
-    res.json({ ok: true, saved, total: chunks.length });
-  } catch (error) {
-    console.log('Crawl error:', error.message);
-    res.status(500).json({ error: 'Ошибка Jina Reader' });
-  }
+app.get('/crawl', (req, res) => {
+  res.json({ ok: false, error: 'Парсинг отключен для теста' });
 });
 
 // ========== АВТОСВОДКИ С ЧАСОВЫМ ПОЯСОМ ==========
