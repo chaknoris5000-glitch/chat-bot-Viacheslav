@@ -191,7 +191,7 @@ async function getTelegramFileUrl(fileId) {
 async function searchDocuments(queryEmbedding, limit = 8) {
   try {
     // ИСПРАВЛЕНО: Сначала фильтр client_id, потом select
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/documents?client_id=eq.${CLIENT_ID}&select=id,content,url,embedding`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/documents?client_id=eq.${CLIENT_ID}&select=id,content,url,embedding`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     if (!r.ok) { console.log('Supabase fetch error'); return []; }
