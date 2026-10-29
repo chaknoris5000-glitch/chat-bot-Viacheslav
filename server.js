@@ -454,7 +454,6 @@ const clientConfig = await getClient(CLIENT_ID);
 СБОР ЗАЯВКИ:
 Если клиент явно просит записать его на услугу, ИЛИ сам назвал свое имя и телефон — ты ОБЯЗАН добавить в САМОМ КОНЦЕ ответа:
 [LEAD_SAVE][NAME:имя][PHONE:телефон][PROBLEM:суть записи]
-Если клиент просто спрашивает цену или задает вопрос, но не называет имя и телефон — НЕ добавляй этот тег.
 
 КОНТЕКСТ ДИАЛОГА:
 Если ты видишь, что диалог начался на сайте (в истории есть предыдущие сообщения), не начинай разговор с нуля. Продолжай его по смыслу. Например: "Возвращаясь к вашему вопросу про тарифы..." или "Как я понял, вас интересует...".
@@ -529,7 +528,7 @@ ${context || 'Информация временно недоступна.'}`;
     if (!reply.includes(BASE_URL)) reply += `\n\nОтзывы клиентов: ${BASE_URL}/?go=reviews`;
   }
 
-  const leadData = extractLeadData(reply);
+  const leadData = extractLeadData(reply); console.log('🔍 Проверка лида:', JSON.stringify(leadData));
   if (leadData.save && isValidLead(leadData.name, leadData.phone)) {
     try {
       const leadId = await saveLead(sessionId, leadData.name, leadData.phone, leadData.problem);
