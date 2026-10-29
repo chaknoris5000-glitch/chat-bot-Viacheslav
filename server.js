@@ -226,7 +226,7 @@ async function searchDocuments(queryEmbedding, limit = 8) {
 }
 
 async function saveDocument(content, embedding, url) {
-  await fetch(`${SUPABASE_URL}/rest/v1/documents`, {
+  await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/documents`, {
     method: 'POST',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ content, embedding, url, client_id: CLIENT_ID })
