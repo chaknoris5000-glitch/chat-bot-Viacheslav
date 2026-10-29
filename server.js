@@ -454,6 +454,7 @@ const clientConfig = await getClient(CLIENT_ID);
 СБОР ЗАЯВКИ:
 Если клиент явно просит записать его на услугу, ИЛИ сам назвал свое имя и телефон — ты ОБЯЗАН добавить в САМОМ КОНЦЕ ответа:
 [LEAD_SAVE][NAME:имя][PHONE:телефон][PROBLEM:суть записи]
+Если клиент просто спрашивает цену или задает вопрос, но не называет имя и телефон — НЕ добавляй этот тег.
 
 КОНТЕКСТ ДИАЛОГА:
 Если ты видишь, что диалог начался на сайте (в истории есть предыдущие сообщения), не начинай разговор с нуля. Продолжай его по смыслу. Например: "Возвращаясь к вашему вопросу про тарифы..." или "Как я понял, вас интересует...".
@@ -528,7 +529,7 @@ ${context || 'Информация временно недоступна.'}`;
     if (!reply.includes(BASE_URL)) reply += `\n\nОтзывы клиентов: ${BASE_URL}/?go=reviews`;
   }
 
-  const leadData = extractLeadData(reply); console.log('🔍 Проверка лида:', JSON.stringify(leadData));
+  const leadData = extractLeadData(reply);
   if (leadData.save && isValidLead(leadData.name, leadData.phone)) {
     try {
       const leadId = await saveLead(sessionId, leadData.name, leadData.phone, leadData.problem);
@@ -1163,14 +1164,14 @@ app.post('/telegram-webhook', async (req, res) => {
 
 app.get('/crawl', async (req, res) => {
   try {
-    // Используем бесплатный парсер Jina AI Reader
-    const r = await fetch(`https://r.jina.ai/${SITE_TO_CRAWL}`);
-    const text = await r.text();
-    
-    if (!text || text.includes('error')) {
-      return res.status(500).json({ error: 'Jina Reader вернул пустоту или ошибку' });
-    }
-
+    const scrape = await fetch('https://api.firecrawl.dev/v2/scrape', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${FIRECRAWL_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: SITE_TO_CRAWL, formats: ['markdown'] })
+    });
+    const scrapeData = await scrape.json();
+    if (!scrape.ok) return res.status(500).json({ error: 'Firecrawl error' });
+    const text = scrapeData.data?.markdown || '';
     const chunks = [];
     for (let i = 0; i < text.length; i += 1000) chunks.push(text.slice(i, i + 1000));
 
@@ -1180,13 +1181,11 @@ app.get('/crawl', async (req, res) => {
         const embedding = await getEmbedding(chunk);
         await saveDocument(chunk, embedding, SITE_TO_CRAWL);
         saved++;
-      } catch (e) { console.log('Ошибка сохранения чанка:', e.message); }
+      } catch (e) {}
     }
-    
     res.json({ ok: true, saved, total: chunks.length });
   } catch (error) {
-    console.log('Crawl error:', error.message);
-    res.status(500).json({ error: 'Ошибка Jina Reader' });
+    res.status(500).json({ error: 'Ошибка кроулинга' });
   }
 });
 
