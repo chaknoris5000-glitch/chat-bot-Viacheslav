@@ -316,6 +316,7 @@
                     // Если зашел клиент (Лиза) — грузим его заявки через сервер
                     const resLeads = await fetch(`/api/get-leads?client_id=${myClient.client_id}`);
                     myLeads = await resLeads.json();
+                    if (!Array.isArray(myLeads)) myLeads = [];
                     setupClientUI(myClient);
                 }
                 renderPlans();
