@@ -1166,7 +1166,7 @@ app.get('/crawl', async (req, res) => {
     const scrape = await fetch('https://api.firecrawl.dev/v2/scrape', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${FIRECRAWL_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: SITE_TO_CRAWL, formats: ['markdown'] })
+      body: JSON.stringify({ url: SITE_TO_CRAWL, formats: ['markdown'], proxy: 'stealth' })
     });
     const scrapeData = await scrape.json();
     if (!scrape.ok) return res.status(500).json({ error: 'Firecrawl error' });
