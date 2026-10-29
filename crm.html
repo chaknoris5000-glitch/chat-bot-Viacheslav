@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI CRM - Пульт управления</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg: #f4f6f8; --sidebar-bg: #ffffff; --primary: #1e3a2f; --primary-light: #2F5B43;
+            --accent: #3b82f6; --text-main: #0f172a; --text-muted: #64748b; --border: #e2e8f0;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.05); --danger: #ef4444; --success: #10b981;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; background: var(--bg); color: var(--text-main); display: flex; min-height: 100vh; }
+
+        /* --- Sidebar --- */
+        .sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; position: fixed; height: 100%; left: 0; top: 0; z-index: 100; }
+        .logo { font-size: 18px; font-weight: 800; color: var(--primary); margin-bottom: 24px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        
+        .sidebar-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+        .sidebar-actions .btn { width: 100%; justify-content: center; }
+
+        .menu-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; margin-top: 10px; font-weight: 700; }
+        .menu-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; color: var(--text-muted); font-weight: 500; transition: all 0.2s; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
+        .menu-item:hover { background: #f1f5f9; color: var(--text-main); }
+        .menu-item.active { background: #e8f0ec; color: var(--primary-light); font-weight: 600; }
+        .menu-item svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-right: 10px; }
+        .menu-item-left { display: flex; align-items: center; }
+        .badge-count { background: var(--danger); color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
+
+        /* --- Main Content --- */
+        .main-content { flex: 1; margin-left: 260px; padding: 30px; max-width: 1400px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .header h1 { font-size: 24px; font-weight: 700; }
+        
+        .btn { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: #f8fafc; }
+        .btn-sm { padding: 4px 8px; font-size: 11px; }
+        .btn-danger { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+
+        /* --- Stats --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; padding: 16px; border-radius: 10px; border: 1px solid var(--border); box-shadow: var(--card-shadow); }
+        .stat-title { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
+        .stat-value { font-size: 26px; font-weight: 800; }
+
+        /* --- Kanban --- */
+        .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; min-height: 60vh; }
+        .kanban-col { flex: 1; min-width: 300px; background: #f8fafc; border-radius: 10px; padding: 12px; border: 1px solid var(--border); }
+        .col-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; padding: 4px 8px; margin-bottom: 10px; color: #475569; }
+        .kanban-card { background: white; border-radius: 8px; padding: 12px; border: 1px solid var(--border); box-shadow: var(--card-shadow); cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+        .kanban-card:hover { border-color: #cbd5e1; }
+        .k-title { font-weight: 700; font-size: 14px; display: flex; justify-content: space-between; }
+        .k-amount { color: var(--success); }
+        .k-phone { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+        .k-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+        .k-tag { font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569; }
+        .k-actions { margin-top: 10px; border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; justify-content: flex-end; }
+
+        /* --- Table --- */
+        .table-container { background: white; border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background: #f8fafc; padding: 12px 16px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+        td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+        tr:hover td { background: #f8fafc; cursor: pointer; }
+
+        /* --- Filters --- */
+        .filters-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+        .filter-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--text-muted); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+        .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .filter-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
+
+        /* --- Modal / Client Card --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 24px; border-radius: 12px; width: 95%; max-width: 650px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .modal-title { font-size: 20px; font-weight: 700; }
+        
+        .status-panel { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+        .current-status { font-weight: bold; font-size: 14px; padding: 4px 10px; border-radius: 6px; }
+        .status-new { background: #eff6ff; color: #1d4ed8; }
+        .status-progress { background: #fffbeb; color: #b45309; }
+        .status-closed { background: #f0fdf4; color: #15803d; }
+        .status-archived { background: #f1f5f9; color: #475569; }
+        .status-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .contact-actions { display: flex; gap: 8px; margin-bottom: 20px; }
+        .btn-contact { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; font-size: 12px; border-radius: 8px; text-decoration: none; font-weight: 600; border: none; cursor: pointer; }
+        .btn-call { background: #eff6ff; color: #1d4ed8; }
+        .btn-tg { background: #e0f2fe; color: #0284c7; }
+        .btn-email { background: #f3f4f6; color: #374151; }
+        
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group.full { grid-column: span 2; }
+        .form-group label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+        .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; outline: none; font-family: inherit; }
+
+        .settings-section { background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; }
+        .settings-section h3 { font-size: 16px; margin-bottom: 15px; color: var(--primary); }
+        .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .settings-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+        /* --- Mobile --- */
+        @media (max-width: 768px) {
+            .mobile-small-btn { font-size: 10px !important; }
+            body { flex-direction: column; padding-bottom: 64px; }
+            .sidebar { width: 100%; height: 60px; flex-direction: row; bottom: 0; top: auto; padding: 0; justify-content: space-around; z-index: 1000; }
+            .logo, .menu-label, .sidebar-actions { display: none !important; }
+            .menu-item { flex-direction: column; font-size: 10px; padding: 8px; margin: 0; gap: 4px; }
+            .menu-item svg { margin: 0; width: 20px; height: 20px; }
+            .menu-item.active { background: none; color: var(--primary-light); }
+            .main-content { margin-left: 0; padding: 16px; padding-top: 70px; }
+            .header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .header-actions-mobile { 
+                display: flex !important; gap: 10px; width: 100%; margin-bottom: 0; 
+                position: fixed; top: 0; left: 0; right: 0; z-index: 990; 
+                background: #f4f6f8; padding: 12px 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            }
+            .btn { flex: 1; justify-content: center; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .kanban-board { flex-direction: row; overflow-x: hidden; gap: 4px; padding-bottom: 10px; }
+            .kanban-col { flex: 1; min-width: 0; padding: 4px; margin-right: 0; }
+            .kanban-card { padding: 8px; }
+            .col-header { font-size: 10px; padding: 2px 4px; }
+            .k-title { font-size: 11px; }
+            .k-phone { font-size: 10px; }
+            .k-tag { font-size: 8px; padding: 1px 4px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: span 1; }
+        }
+        @media (min-width: 769px) {
+            .header-actions-mobile { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="auth-container" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; width:100%;">
+        <h2 style="color: var(--primary); margin-bottom: 10px;">AI CRM</h2>
+        <div id="telegram-login-btn">
+            <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="vadim602_bot" data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
+        </div>
+    </div>
+
+    <div id="crm-container" style="display: none; width: 100%;">
+        
+        <div class="header-actions-mobile">
+            <button class="btn btn-primary" id="add-client-btn-mobile" onclick="openCreateModal()">+ Клиент</button>
+            <button class="btn btn-outline" onclick="exportToExcel()">Excel</button>
+        </div>
+
+        <div class="sidebar">
+            <div class="logo">AI CRM</div>
+            
+            <div class="sidebar-actions">
+                <button class="btn btn-primary" id="add-client-btn" onclick="openCreateModal()">+ Добавить клиента</button>
+                <button class="btn btn-outline" onclick="exportToExcel()">Скачать Excel</button>
+            </div>
+
+            <div class="menu-label">Рабочее пространство</div>
+            <div class="menu-item active" onclick="switchTab('kanban')">
+                <div class="menu-item-left">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+                    Воронка
+                </div>
+            </div>
+            <div class="menu-item" onclick="switchTab('list')">
+                <div class="menu-item-left">
+                    <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                    Все заявки
+                </div>
+            </div>
+            <div class="menu-item" onclick="switchTab('clients')">
+                <div class="menu-item-left">
+                    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    База клиентов
+                </div>
+            </div>
+            <div class="menu-item" onclick="switchTab('tasks')">
+                <div class="menu-item-left">
+                    <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Задачи
+                </div>
+                <span class="badge-count" id="task-count" style="display:none;">0</span>
+            </div>
+
+            <div class="menu-label">Настройки</div>
+            <div class="menu-item" onclick="switchTab('settings')">
+                <div class="menu-item-left">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    Настройки
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <h1 id="page-title">Воронка продаж</h1>
+            </div>
+            <div class="stats-grid" id="stats-block">
+                <div class="stat-card"><div class="stat-title">Всего лидов</div><div class="stat-value" id="stat-total">0</div></div>
+                <div class="stat-card"><div class="stat-title">В работе</div><div class="stat-value" id="stat-progress" style="color: #b45309;">0</div></div>
+                <div class="stat-card"><div class="stat-title">Выполнено</div><div class="stat-value" id="stat-closed" style="color: #15803d;">0</div></div>
+                <div class="stat-card" style="background: #f1f5f9; border-color: #e2e8f0;"><div class="stat-title" style="color: #475569;">Архив</div><div class="stat-value" id="stat-archive" style="color: #475569;">0</div></div>
+            </div>
+            <div id="kanban-view" class="kanban-board"></div>
+
+            <div id="list-view" style="display: none;">
+                <div class="filters-bar">
+                    <button class="filter-btn active" onclick="filterLeadsByStatus('all', this)">Все</button>
+                    <button class="filter-btn" onclick="filterLeadsByStatus('new', this)">Новые</button>
+                    <button class="filter-btn" onclick="filterLeadsByStatus('in_progress', this)">В работе</button>
+                    <button class="filter-btn" onclick="filterLeadsByStatus('closed', this)">Выполнено</button>
+                    <button class="filter-btn" onclick="filterLeadsByStatus('archived', this)">Архив</button>
+                    <input type="date" class="filter-input" id="list-filter-date" onchange="applyListFilters()">
+                    <input type="text" class="filter-input" id="list-filter-search" placeholder="Имя или телефон" oninput="applyListFilters()">
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>ID</th><th>Клиент</th><th>Телефон</th><th>Услуга</th><th>Сумма</th><th>Дата</th><th>Статус</th></tr></thead>
+                        <tbody id="leadsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="clients-view" style="display: none;">
+                <div class="filters-bar">
+                    <input type="text" class="filter-input" id="client-filter-name" placeholder="Поиск по имени" oninput="applyClientBaseFilters()">
+                    <input type="text" class="filter-input" id="client-filter-phone" placeholder="Поиск по телефону" oninput="applyClientBaseFilters()">
+                    <input type="date" class="filter-input" id="client-filter-date" onchange="applyClientBaseFilters()">
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>Имя</th><th>Телефон</th><th>Услуги</th><th>Сумма</th><th>Последняя дата</th></tr></thead>
+                        <tbody id="clientsBaseBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tasks-view" style="display: none;">
+                <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+                    <button class="btn btn-primary" onclick="openTaskModal()">+ Добавить задачу</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>Задача</th><th>Клиент</th><th>Когда</th><th>Действие</th></tr></thead>
+                        <tbody id="tasksBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="settings-view" style="display: none;">
+                <div class="settings-section">
+                    <h3>Профиль владельца</h3>
+                    <div class="settings-row"><span>Имя</span><input type="text" class="filter-input" value="Владелец" style="width: 200px;"></div>
+                    <div class="settings-row"><span>Контакт</span><input type="text" class="filter-input" value="+7 (999) 000-00-00" style="width: 200px;"></div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Внешний вид</h3>
+                    <div class="settings-row"><span>Тёмная тема</span><input type="checkbox" id="theme-toggle" onchange="toggleTheme()" style="width: 20px; height: 20px;"></div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Уведомления</h3>
+                    <div class="settings-row"><span>Новые заявки</span><input type="checkbox" checked style="width: 20px; height: 20px;"></div>
+                    <div class="settings-row"><span>Напоминания о задачах</span><input type="checkbox" checked style="width: 20px; height: 20px;"></div>
+                    <div class="settings-row"><span>Ежедневный отчет</span><input type="checkbox" style="width: 20px; height: 20px;"></div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Интеграции</h3>
+                    <div class="settings-row"><span>Почта</span><button class="btn btn-outline" onclick="alert('Для подключения почты нужен SMTP-сервер. Мы работаем над этим!')">Подключить</button></div>
+                    <div class="settings-row"><span>WhatsApp</span><button class="btn btn-outline" onclick="alert('Для подключения WhatsApp нужен API. Мы работаем над этим!')">Подключить</button></div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Обратная связь</h3>
+                    <div class="settings-row"><span>Оставить отзыв о работе</span><button class="btn btn-outline" onclick="window.open('https://t.me/vadim602_bot', '_blank')">Написать</button></div>
+                    <div class="settings-row"><span>Сообщить о проблеме</span><button class="btn btn-outline" onclick="window.open('https://t.me/vadim602_bot', '_blank')">Написать</button></div>
+                </div>
+
+                <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" onclick="window.location.reload()">Выйти</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clientModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Карточка <span id="edit-id" style="color:#94a3b8; font-size:14px;"></span></div>
+                <div style="cursor:pointer; font-size:24px;" onclick="closeModal()">&times;</div>
+            </div>
+
+            <div class="status-panel" id="status-panel">
+                <div id="current-status-badge" class="current-status"></div>
+                <div class="status-actions" id="status-buttons"></div>
+            </div>
+
+            <div class="contact-actions">
+                <a href="#" id="btn-call" class="btn-contact btn-call">📞 Позвонить</a>
+                <a href="#" id="btn-tg" class="btn-contact btn-tg" target="_blank">✈️ Telegram</a>
+                <a href="#" id="btn-email" class="btn-contact btn-email">✉️ Почта</a>
+            </div>
+          
+            <div id="bot-creation-block" style="margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+                <h4 style="margin-bottom: 10px; color: var(--primary);">Управление ботом</h4>
+                
+                <div id="create-bot-fields">
+                    <div class="form-group" style="margin-bottom: 8px;"><label>ID клиента (латиницей)</label><input type="text" id="bot-client-id" placeholder="например: salon1"></div>
+                    <div class="form-group" style="margin-bottom: 8px;"><label>Название бизнеса</label><input type="text" id="bot-business-name" placeholder="например: Салон красоты"></div>
+                    <div class="form-group" style="margin-bottom: 8px;"><label>Ссылка на сайт</label><input type="text" id="bot-site-url" placeholder="https://..."></div>
+                    <div class="form-group" style="margin-bottom: 8px;"><label>Токен Telegram-бота</label><input type="text" id="bot-token" placeholder="123456:ABC-DEF..."></div>
+                    <div class="form-group" style="margin-bottom: 8px;"><label>Telegram ID владельца (для доступа)</label><input type="text" id="bot-owner-id" placeholder="Например: 123456789"></div>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="createBotFromCard()">🚀 Создать бота</button>
+                </div>
+
+                <div id="widget-download-container" style="display: none; margin-top: 10px;">
+                    <button class="btn btn-primary" style="width: 100%; background: var(--success);" onclick="downloadWidget()">📥 Скачать код виджета</button>
+                </div>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group full"><label>Имя</label><input type="text" id="edit-name"></div>
+                
+                <div class="form-group full" style="margin-bottom: 5px;"><label>Телефоны</label></div>
+                <div id="phones-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
+                <button class="btn btn-outline btn-sm" type="button" onclick="addPhoneField()" style="margin-bottom: 15px;">+ Добавить телефон</button>
+
+                <div class="form-group full" style="margin-bottom: 5px;"><label>Услуги</label></div>
+                <div id="services-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
+                <button class="btn btn-outline btn-sm" type="button" onclick="addServiceField()" style="margin-bottom: 15px;">+ Добавить услугу</button>
+
+                <div class="form-group"><label>Сумма (₽)</label><input type="number" id="edit-amount"></div>
+                <div class="form-group"><label>Оплачено?</label>
+                    <select id="edit-paid"><option value="false">Нет</option><option value="true">Да</option></select>
+                </div>
+                <div class="form-group full"><label>Заметка / Задача</label><textarea id="edit-notes" rows="2"></textarea></div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <button class="btn btn-danger btn-sm" onclick="archiveLead()">📦 Перенести в архив</button>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-top:20px;">
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="copyTemplate()">📋 Копировать шаблон</button>
+                </div>
+                <div>
+                    <button class="btn btn-danger btn-sm" onclick="deleteLead()">Удалить</button>
+                    <button class="btn btn-primary" onclick="saveLead()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="createModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Новый клиент</div>
+                <div style="cursor:pointer; font-size:24px;" onclick="closeCreateClientModal()">&times;</div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group full"><label>ID клиента (латиницей)</label><input type="text" id="newClientId" placeholder="salon1"></div>
+                <div class="form-group full"><label>Название бизнеса</label><input type="text" id="newBusinessName" placeholder="Салон красоты"></div>
+                <div class="form-group full"><label>Ссылка на сайт</label><input type="text" id="newSiteUrl" placeholder="https://..."></div>
+                <div class="form-group full"><label>Токен Telegram-бота</label><input type="text" id="newBotToken" placeholder="123456:ABC-DEF..."></div>
+                <div class="form-group full"><label>Telegram ID владельца (для доступа)</label><input type="text" id="newOwnerId" placeholder="Например: 123456789"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="btn btn-outline" onclick="closeCreateClientModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="submitNewClient()">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Новая задача</div>
+                <div style="cursor:pointer; font-size:24px;" onclick="closeTaskModal()">&times;</div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group full"><label>Клиент</label><select id="task-client-id"></select></div>
+                <div class="form-group full"><label>Что сделать?</label><input type="text" id="task-text" placeholder="Перезвонить..."></div>
+                <div class="form-group full"><label>Когда?</label><input type="datetime-local" id="task-date"></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="btn btn-outline" onclick="closeTaskModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="saveTask()">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ДВА НАБОРА КЛЮЧЕЙ
+        const TILDA_URL = 'https://ozutjnwextahorvzdbpl.supabase.co';
+        const TILDA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96dXRqbndleHRhaG9ydnpkYnBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2MTQ3MzUsImV4cCI6MjEwNzE5MDczNX0.8L3adhQ9gUR5iSly1afSQN6HeEhkj9QQ4NtUyZUQx28';
+        
+        const LOANS_URL = 'https://ggmshdfplrqsybnchvha.supabase.co';
+        const LOANS_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnbXNoZGZwbHJxc3libmNodmhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3MDA4MTUsImV4cCI6MjEwNzI3NjgxNX0.BXfy8ECjzp1g0-uuM_CeXOOB46fWm9KD7VERSX8tYJs';
+
+        const ADMIN_TELEGRAM_ID = 5818548555; 
+        
+        let allLeads = [];
+        let currentLeadId = null;
+        let currentUserTgId = null;
+        let currentListStatus = 'all';
+        
+        // ДИНАМИЧЕСКИЕ ПЕРЕМЕННЫЕ (заполнятся после проверки)
+        let SUPABASE_URL = TILDA_URL;
+        let SUPABASE_KEY = TILDA_KEY;
+
+        // AUTH
+        function onTelegramAuth(user) {
+            fetch('/auth/telegram', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(user)
+            }).then(res => res.json()).then(data => {
+                if (data.ok) window.location.href = `/crm?auth_success=1&telegram_id=${data.telegram_id}`;
+            });
+        }
+
+        async function checkAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // 1. Если в ссылке есть telegram_id — берем его
+            if (urlParams.get('auth_success') === '1' && urlParams.get('telegram_id')) {
+                currentUserTgId = Number(urlParams.get('telegram_id'));
+            } 
+            // 2. Если открыто в Telegram (Mini App) — берем оттуда
+            else if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
+                currentUserTgId = window.Telegram.WebApp.initDataUnsafe.user.id;
+            }
+            // 3. НОВОЕ: Режим Админа. Если ты зашел под своим ID, но хочешь посмотреть Лизу
+            else if (urlParams.get('view_client')) {
+                currentUserTgId = ADMIN_TELEGRAM_ID; // Притворяемся админом
+                window.currentClientId = urlParams.get('view_client'); // Запоминаем, чью CRM смотрим
+            }
+            
+            if (currentUserTgId) {
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('crm-container').style.display = 'flex';
+                
+                const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
+                let isOwner = false;
+                
+                // Если не админ, проверяем, есть ли ID в базе LOANS как владелец
+                if (!isAdmin) {
+                    try {
+                        const r = await fetch(`/api/get-client-by-owner?owner_telegram_id=${currentUserTgId}`);
+                        const rows = await r.json();
+                        if (rows && rows.length > 0) {
+                            isOwner = true;
+                            window.currentClientId = rows[0].client_id;
+                        }
+                    } catch(e) { console.error(e); }
+                }
+                
+                if (!isAdmin && !isOwner) {
+                    // ЗАГЛУШКА
+                    document.querySelector('.logo').innerHTML = 'Кабинет';
+                    const addBtn = document.getElementById('add-client-btn');
+                    if (addBtn) addBtn.style.display = 'none';
+                    const addBtnMobile = document.getElementById('add-client-btn-mobile');
+                    if (addBtnMobile) addBtnMobile.style.display = 'none';
+                    
+                    document.querySelector('.main-content').innerHTML = '<div style="text-align:center; padding:50px;"><h2>Доступ только для владельца</h2><p>Пожалуйста, войдите под аккаунтом администратора или владельца.</p></div>';
+                    document.querySelector('.sidebar').style.display = 'none';
+                    document.querySelector('.header-actions-mobile').style.display = 'none';
+                    return;
+                }
+                
+                // Выбираем базу
+                if (isAdmin && !window.currentClientId) {
+                    // Ты как админ без параметров — грузим Tilda
+                    SUPABASE_URL = TILDA_URL;
+                    SUPABASE_KEY = TILDA_KEY;
+                } else {
+                    // Если это Лиза (или ты в режиме view_client) — грузим Loans
+                    SUPABASE_URL = LOANS_URL;
+                    SUPABASE_KEY = LOANS_KEY;
+                }
+                
+                loadLeads();
+                window.history.replaceState({}, document.title, "/crm");
+            }
+        }
+        window.onload = checkAuth;
+
+        // DATA
+        async function loadLeads() {
+            try {
+                let data = [];
+                
+                // Если ты Админ и смотришь Tilda (без view_client)
+                if (currentUserTgId === ADMIN_TELEGRAM_ID && !window.currentClientId) {
+                    const res = await fetch(`${TILDA_URL}/rest/v1/leads?select=*&order=id.desc`, {
+                        headers: { 'apikey': TILDA_KEY, 'Authorization': `Bearer ${TILDA_KEY}` }
+                    });
+                    data = await res.json();
+                } else {
+                    // Иначе — грузим через сервер из loans-bot
+                    let url = `/api/get-leads`;
+                    if (window.currentClientId) {
+                        url += `?client_id=${window.currentClientId}`;
+                    } else {
+                        url += `?client_id=NONE`;
+                    }
+                    const res = await fetch(url);
+                    data = await res.json();
+                }
+                
+                allLeads = Array.isArray(data) ? data : [];
+                updateStats(allLeads);
+                renderKanban(allLeads);
+                renderList(allLeads);
+                renderClientBase(allLeads);
+                renderTasks(allLeads);
+                populateTaskClientSelect(allLeads);
+            } catch (e) { console.error(e); }
+        }
+
+        // RENDER
+        function updateStats(data) {
+            document.getElementById('stat-total').innerText = data.length;
+            document.getElementById('stat-progress').innerText = data.filter(l => l.status === 'in_progress').length;
+            document.getElementById('stat-closed').innerText = data.filter(l => l.status === 'closed').length;
+            document.getElementById('stat-archive').innerText = data.filter(l => l.status === 'archived').length;
+        }
+
+        function renderKanban(data) {
+            const board = document.getElementById('kanban-view');
+            board.innerHTML = '';
+            const columns = [
+                { id: 'new', title: 'Новые' }, 
+                { id: 'in_progress', title: 'В работе' }, 
+                { id: 'closed', title: 'Выполнено' }
+            ];
+
+            columns.forEach(col => {
+                const colLeads = data.filter(l => l.status === col.id);
+                const totalSum = colLeads.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+                
+                const colEl = document.createElement('div');
+                colEl.className = 'kanban-col';
+                colEl.innerHTML = `<div class="col-header"><span>${col.title} (${colLeads.length})</span><span style="color:var(--success);">${totalSum > 0 ? totalSum.toLocaleString() + ' ₽' : ''}</span></div>`;
+
+                colLeads.forEach(lead => {
+                    const card = document.createElement('div');
+                    card.className = 'kanban-card';
+                    card.onclick = () => openClientModal(lead.id);
+                    
+                    let actionBtn = '';
+                    if (col.id === 'new') {
+                        actionBtn = `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); changeStatusFromCard(${lead.id}, 'in_progress')">→ В работу</button>`;
+                    } else if (col.id === 'in_progress') {
+                        actionBtn = `
+                            <div style="display:flex; gap:5px;">
+                                <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); changeStatusFromCard(${lead.id}, 'new')">← Новые</button>
+                                <button class="btn btn-outline btn-sm mobile-small-btn" onclick="event.stopPropagation(); changeStatusFromCard(${lead.id}, 'closed')">→ Выполн.</button>
+                            </div>
+                        `;
+                    } else if (col.id === 'closed') {
+                        actionBtn = `
+                            <div style="display:flex; gap:5px;">
+                                <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); changeStatusFromCard(${lead.id}, 'in_progress')">← В работу</button>
+                                <button class="btn btn-outline btn-sm" style="color:var(--danger);" onclick="event.stopPropagation(); archiveFromKanban(${lead.id})">📦 В архив</button>
+                            </div>
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div class="k-title"><span>${lead.name || 'Без имени'}</span><span class="k-amount">${lead.amount ? lead.amount + ' ₽' : ''}</span></div>
+                        <div class="k-phone">${lead.phone || (lead.phones && lead.phones[0]) || '—'}</div>
+                        <div class="k-tags">${lead.service ? `<span class="k-tag">${lead.service}</span>` : ''}<span class="k-tag">#${lead.id}</span></div>
+                        <div class="k-actions" style="justify-content: flex-end; gap: 5px;">
+                            ${actionBtn}
+                        </div>
+                    `;
+                    colEl.appendChild(card);
+                });
+                board.appendChild(colEl);
+            });
+        }
+
+        function renderList(data) {
+            const tbody = document.getElementById('leadsBody');
+            tbody.innerHTML = '';
+            
+            const dateVal = document.getElementById('list-filter-date').value;
+            const searchVal = document.getElementById('list-filter-search').value.toLowerCase();
+            
+            let filtered = data.filter(l => {
+                if (currentListStatus !== 'all' && l.status !== currentListStatus) return false;
+                if (dateVal && !l.created_at.startsWith(dateVal)) return false;
+                if (searchVal && !(l.name||'').toLowerCase().includes(searchVal) && !(l.phone||'').includes(searchVal)) return false;
+                return true;
+            });
+
+            filtered.forEach(lead => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => openClientModal(lead.id);
+                tr.innerHTML = `
+                    <td style="color:#94a3b8;">#${lead.id}</td>
+                    <td style="font-weight:600;">${lead.name || '—'}</td>
+                    <td>${lead.phone || '—'}</td>
+                    <td>${lead.service || '—'}</td>
+                    <td style="font-weight:700; color:var(--success);">${lead.amount ? lead.amount + ' ₽' : '—'}</td>
+                    <td>${new Date(lead.created_at).toLocaleDateString('ru-RU')}</td>
+                    <td>${lead.status}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderClientBase(data) {
+            const tbody = document.getElementById('clientsBaseBody');
+            tbody.innerHTML = '';
+
+            const uniqueClients = {};
+            data.forEach(lead => {
+                const phone = lead.phone || (lead.phones && lead.phones[0]) || 'unknown';
+                if (!uniqueClients[phone]) {
+                    uniqueClients[phone] = { ...lead, allServices: [], lastDate: lead.created_at };
+                }
+                if (lead.service && !uniqueClients[phone].allServices.includes(lead.service)) uniqueClients[phone].allServices.push(lead.service);
+                if (lead.created_at > uniqueClients[phone].lastDate) uniqueClients[phone].lastDate = lead.created_at;
+            });
+
+            const clientsArray = Object.values(uniqueClients);
+
+            const nameVal = document.getElementById('client-filter-name').value.toLowerCase();
+            const phoneVal = document.getElementById('client-filter-phone').value;
+            const dateVal = document.getElementById('client-filter-date').value;
+
+            const filtered = clientsArray.filter(c => {
+                if (nameVal && !(c.name||'').toLowerCase().includes(nameVal)) return false;
+                if (phoneVal && !(c.phone||'').includes(phoneVal)) return false;
+                if (dateVal && !c.lastDate.startsWith(dateVal)) return false;
+                return true;
+            });
+
+            filtered.forEach(client => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => openClientModal(client.id);
+                tr.innerHTML = `
+                    <td style="font-weight:600;">${client.name || '—'}</td>
+                    <td>${client.phone || '—'}</td>
+                    <td>${client.allServices.join(', ') || '—'}</td>
+                    <td style="color:var(--success);">${client.amount ? client.amount + ' ₽' : '—'}</td>
+                    <td>${new Date(client.lastDate).toLocaleDateString('ru-RU')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTasks(data) {
+            const tbody = document.getElementById('tasksBody');
+            tbody.innerHTML = '';
+            const tasks = data.filter(l => l.next_contact_date);
+            document.getElementById('task-count').innerText = tasks.length;
+            if(tasks.length > 0) document.getElementById('task-count').style.display = 'inline-block';
+
+            tasks.forEach(lead => {
+                const date = new Date(lead.next_contact_date).toLocaleString('ru-RU');
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${lead.notes || 'Перезвонить'}</td>
+                    <td>${lead.name} (${lead.phone})</td>
+                    <td style="color: var(--danger); font-weight: 600;">${date}</td>
+                    <td><button class="btn btn-outline btn-sm" onclick="openClientModal(${lead.id})">Открыть</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- СТАТУСЫ И КАРТОЧКА ---
+        function updateStatusUI(status) {
+            const badge = document.getElementById('current-status-badge');
+            const buttons = document.getElementById('status-buttons');
+            buttons.innerHTML = '';
+
+            if (status === 'new') {
+                badge.className = 'current-status status-new';
+                badge.innerText = 'Статус: Новая';
+                buttons.innerHTML = `<button class="btn btn-primary btn-sm" onclick="changeStatusFromCard('in_progress')">Взять в работу</button>`;
+            } else if (status === 'in_progress') {
+                badge.className = 'current-status status-progress';
+                badge.innerText = 'Статус: В работе';
+                buttons.innerHTML = `<button class="btn btn-primary btn-sm" style="background:var(--success);" onclick="changeStatusFromCard('closed')">Выполнено</button>`;
+            } else if (status === 'closed') {
+                badge.className = 'current-status status-closed';
+                badge.innerText = 'Статус: Выполнено';
+            } else if (status === 'archived') {
+                badge.className = 'current-status status-archived';
+                badge.innerText = 'Статус: В архиве';
+                buttons.innerHTML = `<button class="btn btn-outline btn-sm" onclick="changeStatusFromCard('new')">Вернуть в новые</button>`;
+            }
+        }
+
+        async function changeStatusFromCard(id, newStatus) {
+            await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            closeModal();
+            loadLeads();
+        }
+
+        async function archiveFromKanban(id) {
+            await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'archived' })
+            });
+            loadLeads();
+        }
+
+        function openClientModal(id) {
+            const lead = allLeads.find(l => l.id === id);
+            if (!lead) return;
+            currentLeadId = id;
+            document.getElementById('edit-id').innerText = `#${id}`;
+            document.getElementById('edit-name').value = lead.name || '';
+            document.getElementById('edit-amount').value = lead.amount || '';
+            document.getElementById('edit-paid').value = lead.is_paid ? 'true' : 'false';
+            document.getElementById('edit-notes').value = lead.notes || lead.problem || '';
+
+            document.getElementById('phones-container').innerHTML = '';
+            document.getElementById('services-container').innerHTML = '';
+
+            const phones = lead.phones && lead.phones.length > 0 ? lead.phones : (lead.phone ? [lead.phone] : ['']);
+            phones.forEach(p => addPhoneField(p));
+
+            const services = lead.services && lead.services.length > 0 ? lead.services : (lead.service ? [lead.service] : ['']);
+            services.forEach(s => addServiceField(s));
+
+            updateStatusUI(lead.status);
+
+            const cleanPhone = (lead.phone || '').replace(/\D/g, '');
+            document.getElementById('btn-call').href = `tel:${lead.phone || ''}`;
+            document.getElementById('btn-tg').href = cleanPhone.length > 5 ? `https://t.me/+${cleanPhone}` : '#';
+
+            if (lead.email) {
+                document.getElementById('btn-email').href = `mailto:${lead.email}`;
+                document.getElementById('btn-email').style.opacity = '1';
+            } else {
+                document.getElementById('btn-email').removeAttribute('href');
+                document.getElementById('btn-email').style.opacity = '0.5';
+            }
+
+            // Показываем управление ботом только Админу
+            if (currentUserTgId === ADMIN_TELEGRAM_ID) {
+                if (lead.client_id && lead.client_id !== 'tilda') {
+                    document.getElementById('create-bot-fields').style.display = 'none';
+                    document.getElementById('widget-download-container').style.display = 'block';
+                } else {
+                    document.getElementById('create-bot-fields').style.display = 'block';
+                    document.getElementById('widget-download-container').style.display = 'none';
+                    document.getElementById('bot-client-id').value = '';
+                    document.getElementById('bot-business-name').value = '';
+                    document.getElementById('bot-site-url').value = '';
+                    document.getElementById('bot-token').value = '';
+                    document.getElementById('bot-owner-id').value = '';
+                }
+            } else {
+                // У клиентов (Екатерины) этого блока вообще не будет
+                document.getElementById('bot-creation-block').style.display = 'none';
+            }
+            
+            document.getElementById('clientModal').style.display = 'flex';
+        }
+
+        function addPhoneField(value = '') {
+            const container = document.getElementById('phones-container');
+            const div = document.createElement('div');
+            div.style.display = 'flex'; div.style.gap = '8px';
+            div.innerHTML = `
+                <input type="text" class="dynamic-phone" value="${value}" placeholder="+7..." style="flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:6px;">
+                <button class="btn btn-danger btn-sm" type="button" onclick="this.parentElement.remove()" style="padding:0 10px;">✕</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function addServiceField(value = '') {
+            const container = document.getElementById('services-container');
+            const div = document.createElement('div');
+            div.style.display = 'flex'; div.style.gap = '8px';
+            div.innerHTML = `
+                <input type="text" class="dynamic-service" value="${value}" placeholder="Услуга" style="flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:6px;">
+                <button class="btn btn-danger btn-sm" type="button" onclick="this.parentElement.remove()" style="padding:0 10px;">✕</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function closeModal() { document.getElementById('clientModal').style.display = 'none'; }
+
+        async function saveLead() {
+            const phones = Array.from(document.querySelectorAll('.dynamic-phone')).map(i => i.value.trim()).filter(v => v);
+            const services = Array.from(document.querySelectorAll('.dynamic-service')).map(i => i.value.trim()).filter(v => v);
+
+            const updates = {
+                name: document.getElementById('edit-name').value.trim(),
+                phones: phones, services: services,
+                phone: phones[0] || null, service: services[0] || null,
+                amount: Number(document.getElementById('edit-amount').value) || 0,
+                is_paid: document.getElementById('edit-paid').value === 'true',
+                notes: document.getElementById('edit-notes').value.trim()
+            };
+            await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${currentLeadId}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+            closeModal(); loadLeads();
+        }
+
+        async function archiveLead() {
+            const reason = prompt('Укажите причину переноса в архив:');
+            if (reason === null) return; 
+            await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${currentLeadId}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'archived', archive_reason: reason || 'Без причины' })
+            });
+            closeModal(); loadLeads();
+        }
+
+        async function deleteLead() {
+            if (!confirm('Удалить заявку?')) return;
+            await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${currentLeadId}`, {
+                method: 'DELETE',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+            closeModal(); loadLeads();
+        }
+
+        function copyTemplate() {
+            const name = document.getElementById('edit-name').value || 'Клиент';
+            navigator.clipboard.writeText(`Здравствуйте, ${name}! Спасибо за обращение. Наш менеджер свяжется с вами в ближайшее время.`);
+            alert('Шаблон скопирован!');
+        }
+
+        // TASKS
+        function populateTaskClientSelect(data) {
+            const select = document.getElementById('task-client-id');
+            select.innerHTML = '<option value="">Выберите клиента...</option>';
+            data.forEach(l => { select.innerHTML += `<option value="${l.id}">${l.name || 'Без имени'} (${l.phone || '—'})</option>`; });
+        }
+
+        function openTaskModal() { document.getElementById('taskModal').style.display = 'flex'; }
+        function closeTaskModal() { document.getElementById('taskModal').style.display = 'none'; }
+
+        async function saveTask() {
+            const id = document.getElementById('task-client-id').value;
+            const text = document.getElementById('task-text').value;
+            const date = document.getElementById('task-date').value;
+            if (!id || !text || !date) return alert('Заполните все поля');
+
+            await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ next_contact_date: date, notes: text })
+            });
+            closeTaskModal(); loadLeads(); switchTab('tasks');
+        }
+
+        // TABS
+        function switchTab(tab) {
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.main-content > div:not(.header-actions-mobile)').forEach(el => el.style.display = 'none');
+            document.getElementById('stats-block').style.display = 'grid';
+            if (tab === 'kanban') {
+                document.querySelectorAll('.menu-item')[0].classList.add('active');
+                document.getElementById('page-title').innerText = 'Воронка продаж';
+                document.getElementById('kanban-view').style.display = 'flex';
+            } else if (tab === 'list') {
+                document.querySelectorAll('.menu-item')[1].classList.add('active');
+                document.getElementById('page-title').innerText = 'Все заявки';
+                document.getElementById('list-view').style.display = 'block';
+            } else if (tab === 'clients') {
+                document.querySelectorAll('.menu-item')[2].classList.add('active');
+                document.getElementById('page-title').innerText = 'База клиентов';
+                document.getElementById('clients-view').style.display = 'block';
+            } else if (tab === 'tasks') {
+                document.querySelectorAll('.menu-item')[3].classList.add('active');
+                document.getElementById('page-title').innerText = 'Задачи и напоминания';
+                document.getElementById('tasks-view').style.display = 'block';
+            } else {
+                document.querySelectorAll('.menu-item')[4].classList.add('active');
+                document.getElementById('page-title').innerText = 'Настройки';
+                document.getElementById('settings-view').style.display = 'block';
+            }
+        }
+
+        function filterLeadsByStatus(status, btn) {
+            currentListStatus = status;
+            document.querySelectorAll('.filters-bar .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyListFilters();
+        }
+
+        function applyListFilters() { renderList(allLeads); }
+        function applyClientBaseFilters() { renderClientBase(allLeads); }
+
+        // EXPORT & CREATE
+        function exportToExcel() {
+            if (allLeads.length === 0) return alert('Нет данных');
+            const ws_data = [["ID", "Дата", "Имя", "Телефон", "Услуга", "Сумма", "Оплачено", "Статус"]];
+            allLeads.forEach(l => {
+                ws_data.push([l.id, new Date(l.created_at).toLocaleString('ru-RU'), l.name || '', l.phone || '', l.service || '', l.amount || 0, l.is_paid ? 'Да' : 'Нет', l.status]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Заявки");
+            XLSX.writeFile(wb, "leads_export.xlsx");
+        }
+
+        function openCreateModal() { document.getElementById('createModal').style.display = 'flex'; }
+        function closeCreateClientModal() { document.getElementById('createModal').style.display = 'none'; }
+
+        async function submitNewClient() {
+            const client_id = document.getElementById('newClientId').value.trim();
+            const business_name = document.getElementById('newBusinessName').value.trim();
+            const site_url = document.getElementById('newSiteUrl').value.trim();
+            const bot_token = document.getElementById('newBotToken').value.trim();
+            const owner_telegram_id = document.getElementById('newOwnerId').value.trim();
+            if (!client_id || !business_name || !site_url || !bot_token) return alert('Заполните все поля!');
+
+            try {
+                const res = await fetch('/api/create-client', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id, business_name, site_url, timezone: 'Europe/Moscow', manager_chat_id: owner_telegram_id || ADMIN_TELEGRAM_ID.toString(), bot_token, owner_telegram_id })
+                });
+                const data = await res.json();
+                if (data.ok) { alert('🚀 Задача запущена!'); closeCreateClientModal(); } else { alert('Ошибка: ' + data.error); }
+            } catch (e) { alert('Ошибка сети: ' + e.message); }
+        }
+
+        // ФУНКЦИЯ СОЗДАНИЯ БОТА ИЗ КАРТОЧКИ
+        async function createBotFromCard() {
+            const client_id = document.getElementById('bot-client-id').value.trim();
+            const business_name = document.getElementById('bot-business-name').value.trim();
+            const site_url = document.getElementById('bot-site-url').value.trim();
+            const bot_token = document.getElementById('bot-token').value.trim();
+            const owner_telegram_id = document.getElementById('bot-owner-id').value.trim();
+            
+            if (!client_id || !business_name || !site_url || !bot_token) return alert('Заполните все поля для создания бота!');
+
+            const lead = allLeads.find(l => l.id === currentLeadId);
+
+            try {
+                const res = await fetch('/api/create-client', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        client_id, 
+                        business_name, 
+                        site_url, 
+                        timezone: 'Europe/Moscow', 
+                        manager_chat_id: owner_telegram_id || ADMIN_TELEGRAM_ID.toString(), 
+                        bot_token,
+                        owner_telegram_id: Number(owner_telegram_id)
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.ok) {
+                    alert('🚀 Бот создается! Через минуту появится кнопка скачивания.');
+                    
+                    await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${currentLeadId}`, {
+                        method: 'PATCH',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ client_id: client_id })
+                    });
+
+                    document.getElementById('create-bot-fields').style.display = 'none';
+                    document.getElementById('widget-download-container').style.display = 'block';
+                    
+                    if (lead) lead.client_id = client_id;
+                    
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            } catch (e) { alert('Ошибка сети: ' + e.message); }
+        }
+
+        function toggleTheme() {
+            const isDark = document.getElementById('theme-toggle').checked;
+            if (isDark) {
+                document.body.style.background = '#000000';
+                document.body.style.color = '#e2e8f0';
+                document.querySelectorAll('.stat-card, .table-container, .sidebar, .settings-section, .modal-content, .kanban-col').forEach(el => {
+                    el.style.background = '#1c1c1e'; el.style.borderColor = '#2c2c2e'; el.style.color = '#e2e8f0';
+                });
+                document.querySelectorAll('h1, h2, h3, .stat-title, .stat-value, .settings-row, .k-title').forEach(el => { el.style.color = '#e2e8f0'; });
+                document.querySelectorAll('input, select, textarea').forEach(el => {
+                    el.style.background = '#2c2c2e'; el.style.color = '#e2e8f0'; el.style.borderColor = '#3a3a3c';
+                });
+            } else {
+                document.body.style.background = '#f4f6f8';
+                document.body.style.color = '#0f172a';
+                document.querySelectorAll('.stat-card, .table-container, .sidebar, .settings-section, .modal-content, .kanban-col').forEach(el => {
+                    el.style.background = '#ffffff'; el.style.borderColor = '#e2e8f0'; el.style.color = '#0f172a';
+                });
+                document.querySelectorAll('h1, h2, h3, .stat-title, .stat-value, .settings-row, .k-title').forEach(el => { el.style.color = '#0f172a'; });
+                document.querySelectorAll('input, select, textarea').forEach(el => {
+                    el.style.background = '#ffffff'; el.style.color = '#0f172a'; el.style.borderColor = '#e2e8f0';
+                });
+            }
+        }
+
+        function downloadWidget() {
+            const lead = allLeads.find(l => l.id === currentLeadId);
+            if (!lead) return;
+            const clientId = lead.client_id || 'tilda';
+            const serverUrl = `https://chat-bot-${clientId}.onrender.com/message`;
+            const botName = `vadim602_bot`;
+
+            const widgetCode = `
+<div id="chatBubble" style="position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;background:#2F5B43;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;z-index:99999;box-shadow:0 4px 20px rgba(47,91,67,0.5);animation:pulse 2s infinite;">💬</div>
+<div id="chatWidget" style="display:none;position:fixed;bottom:20px;right:20px;width:340px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.18);font-family:Arial,sans-serif;z-index:99999;box-sizing:border-box;">
+  <div style="background:#2F5B43;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;">
+    <div style="width:36px;height:36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;color:#2F5B43;flex-shrink:0;">🤖</div>
+    <div style="line-height:1.2;flex:1;">
+      <div style="font-size:15px;font-weight:bold;">AI-Администратор</div>
+      <div style="font-size:12px;opacity:0.85;display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;"></span>Онлайн</div>
+    </div>
+    <div id="chatClose" style="cursor:pointer;font-size:22px;line-height:1;padding:0 4px;">×</div>
+  </div>
+  <div style="padding:14px;background:#f7f9f8;box-sizing:border-box;">
+    <div id="chatMessages" style="height:240px;overflow-y:auto;margin-bottom:10px;font-size:14px;padding:4px;">
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:#2F5B43;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+        <div style="background:#fff;color:#222;padding:8px 12px;border-radius:12px;border-top-left-radius:4px;max-width:80%;box-shadow:0 1px 3px rgba(0,0,0,0.05);">Здравствуйте! Внимательно Вас слушаю!</div>
+      </div>
+    </div>
+    <textarea id="chatInput" placeholder="Введите сообщение" style="width:100%;height:48px;box-sizing:border-box;padding:10px 12px;border:1px solid #e0e0e0;border-radius:10px;resize:none;font-family:inherit;font-size:14px;outline:none;background:#fff;"></textarea>
+    <button id="chatSend" type="button" style="width:100%;padding:11px;margin-top:8px;background:#2F5B43;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:bold;box-sizing:border-box;">Отправить</button>
+    <a id="tgBtn" href="https://t.me/${botName}" target="_blank" style="display:block;width:100%;padding:11px;margin-top:8px;background:#229ED9;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;text-align:center;text-decoration:none;box-sizing:border-box;font-weight:bold;">✈ Продолжить в Telegram</a>
+    <div id="chatStatus" style="font-size:12px;margin-top:6px;color:#777;text-align:center;"></div>
+  </div>
+</div>
+<style>
+@keyframes pulse { 0% { box-shadow: 0 4px 20px rgba(47,91,67,0.5), 0 0 0 0 rgba(47,91,67,0.7); } 70% { box-shadow: 0 4px 20px rgba(47,91,67,0.5), 0 0 0 15px rgba(47,91,67,0); } 100% { box-shadow: 0 4px 20px rgba(47,91,67,0.5), 0 0 0 0 rgba(47,91,67,0); } }
+</style>
+<script>
+(function() {
+  var SERVER_URL = '${serverUrl}';
+  var TELEGRAM_BOT = '${botName}';
+  var sessionId = localStorage.getItem('chat_session_id');
+  if (!sessionId) {
+    sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('chat_session_id', sessionId);
+  }
+  var tgBtn = document.getElementById('tgBtn');
+  tgBtn.href = 'https://t.me/' + TELEGRAM_BOT + '?start=' + sessionId;
+  var bubble = document.getElementById('chatBubble');
+  var widget = document.getElementById('chatWidget');
+  var closeBtn = document.getElementById('chatClose');
+  var input = document.getElementById('chatInput');
+  var sendBtn = document.getElementById('chatSend');
+  var messages = document.getElementById('chatMessages');
+  var status = document.getElementById('chatStatus');
+  window.addEventListener('load', function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var go = urlParams.get('go');
+    if (go) { setTimeout(function() { handleScroll('[SCROLL:' + go + ']'); }, 1000); }
+  });
+  bubble.addEventListener('click', function() { bubble.style.display = 'none'; widget.style.display = 'block'; input.focus(); });
+  closeBtn.addEventListener('click', function() { widget.style.display = 'none'; bubble.style.display = 'flex'; });
+  function addUserMessage(text) {
+    var wrap = document.createElement('div');
+    wrap.style.display = 'flex'; wrap.style.justifyContent = 'flex-end'; wrap.style.marginBottom = '10px';
+    var b = document.createElement('div');
+    b.style.background = '#2F5B43'; b.style.color = '#fff'; b.style.padding = '8px 12px'; b.style.borderRadius = '12px'; b.style.borderTopRightRadius = '4px'; b.style.maxWidth = '80%'; b.style.wordWrap = 'break-word'; b.textContent = text;
+    wrap.appendChild(b); messages.appendChild(wrap); messages.scrollTop = messages.scrollHeight;
+  }
+   function addBotMessage(text) {
+    var wrap = document.createElement('div');
+    wrap.style.display = 'flex'; wrap.style.gap = '8px'; wrap.style.marginBottom = '10px'; wrap.style.alignItems = 'flex-start';
+    var av = document.createElement('div');
+    av.style.width = '28px'; av.style.height = '28px'; av.style.borderRadius = '50%'; av.style.background = '#2F5B43'; av.style.color = '#fff'; av.style.display = 'flex'; av.style.alignItems = 'center'; av.style.justifyContent = 'center'; av.style.fontSize = '14px'; av.style.flexShrink = '0'; av.textContent = '🤖';
+    var b = document.createElement('div');
+    b.style.background = '#fff'; b.style.color = '#222'; b.style.padding = '8px 12px'; b.style.borderRadius = '12px'; b.style.borderTopLeftRadius = '4px'; b.style.maxWidth = '80%'; b.style.wordWrap = 'break-word'; b.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+      b.innerHTML = text.split(' ').map(function(word) { if (word.indexOf('http://') === 0 || word.indexOf('https://') === 0) { return '<a href="' + word + '" target="_blank" style="color:#2F5B43;text-decoration:underline;">' + word + '</a>'; } return word; }).join(' ');
+    wrap.appendChild(av); wrap.appendChild(b); messages.appendChild(wrap); messages.scrollTop = messages.scrollHeight;
+  }
+  function handleScroll(replyText) {
+    var targetText = '';
+    if (replyText.includes('[SCROLL:tariffs]')) targetText = 'Выберите свой тариф';
+    if (replyText.includes('[SCROLL:how]')) targetText = 'Как это работает';
+    if (replyText.includes('[SCROLL:demos]')) targetText = 'Примеры работ';
+    if (replyText.includes('[SCROLL:guarantee]')) targetText = 'Гарантия';
+    if (replyText.includes('[SCROLL:why-me]')) targetText = 'Почему я';
+    if (replyText.includes('[SCROLL:profit]')) targetText = 'Вы получаете не бота';
+    if (replyText.includes('[SCROLL:for-whom]')) targetText = 'Подходит любому бизнесу';
+    if (replyText.includes('[SCROLL:oferta]')) targetText = 'Публичная оферта';
+    if (replyText.includes('[SCROLL:benefits]')) targetText = 'Восемь причин';
+    if (replyText.includes('[SCROLL:reviews]')) targetText = 'Что говорят владельцы';
+    if (!targetText) return;
+    var win = window;
+    try { if (window.top && window.top.document) { win = window.top; } } catch (e) {}
+    var headers = win.document.querySelectorAll('h1, h2, h3');
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i].innerText.includes(targetText)) { headers[i].scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    }
+  }
+  function sendMessage() {
+    var text = input.value.trim();
+    if (!text) return;
+    addUserMessage(text); input.value = ''; status.textContent = 'Печатает...';
+    fetch(SERVER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, session_id: sessionId }) })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var rawReply = data.reply || 'Нет ответа';
+        handleScroll(rawReply); 
+        var cleanText = rawReply.replace(/\\[SCROLL:[^\\]]*\\]/g, '').replace(/\\[LEAD_SAVE\\]|\\[NAME:[^\\]]*\\]|\\[PHONE:[^\\]]*\\]|\\[PROBLEM:[^\\]]*\\]/g, '').trim();
+        addBotMessage(cleanText); status.textContent = '';
+      })
+      .catch(function() { addBotMessage('Ошибка соединения. Попробуйте позже.'); status.textContent = ''; });
+  }
+    sendBtn.addEventListener('click', sendMessage);
+  input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+})();
+<\/script>
+            `.trim();
+
+            const blob = new Blob([widgetCode], { type: 'text/html' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `widget_${clientId}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
