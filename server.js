@@ -63,7 +63,7 @@ const newClientStates = {}; // Память для пошагового созд
 
 async function getClient(clientId) {
   try {
-    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}&select=*&limit=1`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}&select=*&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const rows = await r.json();
@@ -235,7 +235,7 @@ async function saveDocument(content, embedding, url) {
 
 async function getOrCreateSession(sessionId) {
   try {
-    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}&select=*&limit=1`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/chat_sessions?session_id=eq.${sessionId}&select=*`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const rows = await r.json();
