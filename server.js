@@ -1145,12 +1145,12 @@ app.post('/telegram-webhook', async (req, res) => {
     if (!chatSession) chatSession = { session_id: 'tg_' + chatId, history: [] };
 
     if (!isManager) {
-      const client = await getClient(CLIENT_ID);
-      if (!isPaid(client)) {
-        await sendTelegram(chatId, '⛔️ Сервис временно приостановлен. Свяжитесь с менеджером.');
-        return;
-      }
-    }
+  const client = await getClient(CLIENT_ID);
+  if (!isPaid(client)) {
+    await sendTelegram(chatId, '⛔️ Сервис временно приостановлен. Свяжитесь с менеджером.');
+    return;
+  }
+}
 
     const history = chatSession.history || [];
     const reply = await askAI(text, history, chatSession.session_id);
