@@ -68,12 +68,18 @@ async function getClient(clientId) {
     });
     const rows = await r.json();
     return Array.isArray(rows) && rows[0] ? rows[0] : null;
-  } catch (e) { return null; }
+   } catch (e) { return null; }
 }
 
 function isPaid(client) {
   if (!client || !client.paid_until) return false;
-  return new Date(client.paid_until) > new Date();
+  try {
+    const paidDate = new Date(client.paid_until.replace(' ', 'T'));
+    if (isNaN(paidDate.getTime())) return false;
+    return paidDate > new Date();
+  } catch (e) {
+    return false;
+  }
 }
 
 async function extendPayment(clientId, months = 1) {
