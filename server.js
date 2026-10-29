@@ -63,7 +63,7 @@ const newClientStates = {}; // Память для пошагового созд
 
 async function getClient(clientId) {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}&select=*&limit=1`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}&select=*&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const rows = await r.json();
@@ -73,7 +73,13 @@ async function getClient(clientId) {
 
 function isPaid(client) {
   if (!client || !client.paid_until) return false;
-  return new Date(client.paid_until) > new Date();
+  try {
+    const paidDate = new Date(String(client.paid_until).replace(' ', 'T'));
+    if (isNaN(paidDate.getTime())) return false;
+    return paidDate > new Date();
+  } catch (e) {
+    return false;
+  }
 }
 
 async function extendPayment(clientId, months = 1) {
@@ -83,7 +89,7 @@ async function extendPayment(clientId, months = 1) {
     ? new Date(client.paid_until)
     : new Date();
   base.setMonth(base.getMonth() + months);
-  await fetch(`${SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}`, {
+  await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}`, {
     method: 'PATCH',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ paid_until: base.toISOString(), updated_at: new Date().toISOString() })
@@ -92,7 +98,7 @@ async function extendPayment(clientId, months = 1) {
 }
 
 async function disablePayment(clientId) {
-  await fetch(`${SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}`, {
+  await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?client_id=eq.${clientId}`, {
     method: 'PATCH',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ paid_until: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date().toISOString() })
@@ -190,15 +196,14 @@ async function getTelegramFileUrl(fileId) {
 
 async function searchDocuments(queryEmbedding, limit = 8) {
   try {
-    // ИСПРАВЛЕНО: Сначала фильтр client_id, потом select
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/documents?client_id=eq.${CLIENT_ID}&select=id,content,url,embedding`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/documents?client_id=eq.${CLIENT_ID}&select=id,content,url,embedding`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     if (!r.ok) { console.log('Supabase fetch error'); return []; }
     const docs = await r.json();
     if (!Array.isArray(docs) || docs.length === 0) { console.log('docs empty'); return []; }
 
-        function parseEmb(str) {
+    function parseEmb(str) {
       if (!str) return [];
       if (Array.isArray(str)) return str;
       return String(str).replace(/[\[\]]/g, '').split(',').map(Number);
@@ -226,7 +231,7 @@ async function searchDocuments(queryEmbedding, limit = 8) {
 }
 
 async function saveDocument(content, embedding, url) {
-  await fetch(`${SUPABASE_URL}/rest/v1/documents`, {
+  await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/documents`, {
     method: 'POST',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
     body: JSON.stringify({ content, embedding, url, client_id: CLIENT_ID })
@@ -235,27 +240,29 @@ async function saveDocument(content, embedding, url) {
 
 async function getOrCreateSession(sessionId) {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/chat_sessions?session_id=eq.${sessionId}&select=*`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/chat_sessions?session_id=eq.${sessionId}&select=*`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const rows = await r.json();
     if (Array.isArray(rows) && rows.length > 0) return rows[0];
-    const ins = await fetch(`${SUPABASE_URL}/rest/v1/chat_sessions`, {
+    
+    const ins = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/chat_sessions`, {
       method: 'POST',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-      // ИСПРАВЛЕНО: добавлен client_id
       body: JSON.stringify({ session_id: sessionId, history: [], client_id: CLIENT_ID })
     });
     const created = await ins.json();
     if (Array.isArray(created) && created.length > 0) return created[0];
+    
     return { session_id: sessionId, history: [], client_id: CLIENT_ID };
-  } catch (e) { return { session_id: sessionId, history: [], client_id: CLIENT_ID }; }
+  } catch (e) { 
+    return { session_id: sessionId, history: [], client_id: CLIENT_ID }; 
+  }
 }
 
 async function getSessionByTelegram(chatId) {
   try {
-    // ИСПРАВЛЕНО: добавлен фильтр client_id
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/chat_sessions?telegram_chat_id=eq.${chatId}&client_id=eq.${CLIENT_ID}&select=*&order=updated_at.desc&limit=1`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/chat_sessions?telegram_chat_id=eq.${chatId}&client_id=eq.${CLIENT_ID}&select=*&order=updated_at.desc&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const rows = await r.json();
@@ -265,7 +272,7 @@ async function getSessionByTelegram(chatId) {
 
 async function updateSession(sessionId, patch) {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/chat_sessions?session_id=eq.${sessionId}`, {
+    await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/chat_sessions?session_id=eq.${sessionId}`, {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() })
@@ -275,7 +282,7 @@ async function updateSession(sessionId, patch) {
 
 async function saveLead(sessionId, name, phone, problem, source = 'site') {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/leads`, {
       method: 'POST',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
       body: JSON.stringify({ session_id: sessionId, client_id: CLIENT_ID, name: name || null, phone: phone || null, problem: problem || null, source, status: 'new' })
@@ -402,8 +409,9 @@ async function askAI(message, history, sessionId) {
       context = matches.map(m => m.content).join('\n\n---\n\n');
     }
   } catch (e) { console.log('Контекст не собран:', e.message); }
-const clientConfig = await getClient(CLIENT_ID);
-      const systemPrompt = clientConfig?.prompt || `Ты — AI-Администратор компании «${BUSINESS_NAME}». Ты опытный, живой менеджер по продажам, который общается с клиентами на сайте и в Telegram. Твоя цель — продать услугу, собрать заявку и мягко работать с возражениями.
+  
+  const clientConfig = await getClient(CLIENT_ID);
+  const systemPrompt = clientConfig?.prompt || `Ты — AI-Администратор компании «${BUSINESS_NAME}». Ты опытный, живой менеджер по продажам, который общается с клиентами на сайте и в Telegram. Твоя цель — продать услугу, собрать заявку и мягко работать с возражениями.
 1. Ты — живой человек, а не робот. Общайся максимально естественно, как в обычном чате. Используй слова вроде «Отлично», «Понял», «Да, это решаемо».
 2. Отвечай ОЧЕНЬ коротко: строго 1-3 предложения. Никаких длинных текстов и простыней.
 3. НЕ используй списки, тире, нумерацию, звёздочки. Только обычный текст.
@@ -454,7 +462,6 @@ const clientConfig = await getClient(CLIENT_ID);
 СБОР ЗАЯВКИ:
 Если клиент явно просит записать его на услугу, ИЛИ сам назвал свое имя и телефон — ты ОБЯЗАН добавить в САМОМ КОНЦЕ ответа:
 [LEAD_SAVE][NAME:имя][PHONE:телефон][PROBLEM:суть записи]
-Если клиент просто спрашивает цену или задает вопрос, но не называет имя и телефон — НЕ добавляй этот тег.
 
 КОНТЕКСТ ДИАЛОГА:
 Если ты видишь, что диалог начался на сайте (в истории есть предыдущие сообщения), не начинай разговор с нуля. Продолжай его по смыслу. Например: "Возвращаясь к вашему вопросу про тарифы..." или "Как я понял, вас интересует...".
@@ -529,7 +536,7 @@ ${context || 'Информация временно недоступна.'}`;
     if (!reply.includes(BASE_URL)) reply += `\n\nОтзывы клиентов: ${BASE_URL}/?go=reviews`;
   }
 
-  const leadData = extractLeadData(reply);
+  const leadData = extractLeadData(reply); console.log('🔍 Проверка лида:', JSON.stringify(leadData));
   if (leadData.save && isValidLead(leadData.name, leadData.phone)) {
     try {
       const leadId = await saveLead(sessionId, leadData.name, leadData.phone, leadData.problem);
@@ -593,7 +600,7 @@ async function buildXlsx(leads, title = 'Заявки') {
 }
 
 async function fetchLeads(sinceIso = null) {
-  let url = `${SUPABASE_URL}/rest/v1/leads?select=*&order=id.desc&client_id=eq.${CLIENT_ID}`;
+  let url = `${process.env.COMMON_SUPABASE_URL}/rest/v1/leads?select=*&order=id.desc&client_id=eq.${CLIENT_ID}`;
   if (sinceIso) url += `&created_at=gte.${encodeURIComponent(sinceIso)}`;
   const r = await fetch(url, {
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -742,7 +749,7 @@ app.post('/telegram-webhook', async (req, res) => {
         const leadId = parts[1];
         const newStatus = parts.slice(2).join('_');
 
-        await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`, {
+        await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}`, {
           method: 'PATCH',
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
           body: JSON.stringify({ status: newStatus, updated_at: new Date().toISOString() })
@@ -779,7 +786,7 @@ app.post('/telegram-webhook', async (req, res) => {
 
       if (data.startsWith('call_')) {
         const leadId = data.split('_')[1];
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}&select=*`, {
+        const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}&select=*`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         const rows = await r.json();
@@ -792,7 +799,7 @@ app.post('/telegram-webhook', async (req, res) => {
 
       if (data.startsWith('write_')) {
         const leadId = data.split('_')[1];
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}&select=*`, {
+        const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/leads?id=eq.${leadId}&select=*`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         const rows = await r.json();
@@ -912,7 +919,7 @@ app.post('/telegram-webhook', async (req, res) => {
         return;
       }
 
-                  if (CLIENT_ID === 'tilda') {
+      if (CLIENT_ID === 'tilda') {
         // Твоё личное, неизменное приветствие
         await sendTelegram(chatId, 
           `Здравствуйте! 👋\n\n` +
@@ -1025,7 +1032,7 @@ app.post('/telegram-webhook', async (req, res) => {
     }
 
     if (isManager && text === '/clients') {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/clients?select=*&order=id.desc`, {
+      const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?select=*&order=id.desc`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const rows = await r.json();
@@ -1077,7 +1084,7 @@ app.post('/telegram-webhook', async (req, res) => {
         return;
       }
 
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/clients`, {
+      const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients`, {
         method: 'POST',
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
         body: JSON.stringify({
@@ -1127,7 +1134,7 @@ app.post('/telegram-webhook', async (req, res) => {
       const cid = text.slice(8).trim();
       const client = await getClient(cid);
       if (!client) { await sendTelegram(chatId, `Клиент «${cid}» не найден.`); return; }
-      await fetch(`${SUPABASE_URL}/rest/v1/clients?client_id=eq.${cid}`, {
+      await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?client_id=eq.${cid}`, {
         method: 'DELETE',
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
@@ -1164,14 +1171,14 @@ app.post('/telegram-webhook', async (req, res) => {
 
 app.get('/crawl', async (req, res) => {
   try {
-    const scrape = await fetch('https://api.firecrawl.dev/v2/scrape', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${FIRECRAWL_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: SITE_TO_CRAWL, formats: ['markdown'] })
-    });
-    const scrapeData = await scrape.json();
-    if (!scrape.ok) return res.status(500).json({ error: 'Firecrawl error' });
-    const text = scrapeData.data?.markdown || '';
+    // Используем бесплатный парсер Jina AI Reader
+    const r = await fetch(`https://r.jina.ai/${SITE_TO_CRAWL}`);
+    const text = await r.text();
+    
+    if (!text || text.includes('error')) {
+      return res.status(500).json({ error: 'Jina Reader вернул пустоту или ошибку' });
+    }
+
     const chunks = [];
     for (let i = 0; i < text.length; i += 1000) chunks.push(text.slice(i, i + 1000));
 
@@ -1181,11 +1188,13 @@ app.get('/crawl', async (req, res) => {
         const embedding = await getEmbedding(chunk);
         await saveDocument(chunk, embedding, SITE_TO_CRAWL);
         saved++;
-      } catch (e) {}
+      } catch (e) { console.log('Ошибка сохранения чанка:', e.message); }
     }
+    
     res.json({ ok: true, saved, total: chunks.length });
   } catch (error) {
-    res.status(500).json({ error: 'Ошибка кроулинга' });
+    console.log('Crawl error:', error.message);
+    res.status(500).json({ error: 'Ошибка Jina Reader' });
   }
 });
 
@@ -1236,7 +1245,7 @@ async function sendDailyReportForClient(client) {
 
 cron.schedule('*/15 * * * *', async () => {
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/clients?select=*`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?select=*`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const clients = await r.json();
@@ -1290,7 +1299,7 @@ cron.schedule('0 7 1 * *', async () => {
 // ========== НАПОМИНАНИЯ ОБ ОПЛАТЕ ==========
 cron.schedule('0 10 * * *', async () => { 
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/clients?select=*`, {
+    const r = await fetch(`${process.env.COMMON_SUPABASE_URL}/rest/v1/clients?select=*`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const clients = await r.json();
