@@ -15,8 +15,8 @@ app.use(express.json({ limit: '25mb' }));
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
 const MANAGER_CHAT_ID = process.env.MANAGER_CHAT_ID || '';
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+const SUPABASE_URL = process.env.COMMON_SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.COMMON_SUPABASE_KEY || '';
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY || '';
 const FIRECRAWL_KEY = process.env.FIRECRAWL_KEY || '';
 const SITE_TO_CRAWL = 'https://g-energy.org/service/ru';
