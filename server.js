@@ -1156,14 +1156,14 @@ app.post('/telegram-webhook', async (req, res) => {
 
 app.get('/crawl', async (req, res) => {
   try {
-    const scrape = await fetch('https://api.firecrawl.dev/v2/scrape', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${FIRECRAWL_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: SITE_TO_CRAWL, formats: ['markdown'] })
-    });
-    const scrapeData = await scrape.json();
-    if (!scrape.ok) return res.status(500).json({ error: 'Firecrawl error' });
-    const text = scrapeData.data?.markdown || '';
+    // Используем бесплатный парсер Jina AI Reader
+    const r = await fetch(`https://r.jina.ai/${SITE_TO_CRAWL}`);
+    const text = await r.text();
+    
+    if (!text || text.includes('error')) {
+      return res.status(500).json({ error: 'Jina Reader вернул пустоту или ошибку' });
+    }
+
     const chunks = [];
     for (let i = 0; i < text.length; i += 1000) chunks.push(text.slice(i, i + 1000));
 
@@ -1173,11 +1173,13 @@ app.get('/crawl', async (req, res) => {
         const embedding = await getEmbedding(chunk);
         await saveDocument(chunk, embedding, SITE_TO_CRAWL);
         saved++;
-      } catch (e) {}
+      } catch (e) { console.log('Ошибка сохранения чанка:', e.message); }
     }
+    
     res.json({ ok: true, saved, total: chunks.length });
   } catch (error) {
-    res.status(500).json({ error: 'Ошибка кроулинга' });
+    console.log('Crawl error:', error.message);
+    res.status(500).json({ error: 'Ошибка Jina Reader' });
   }
 });
 
