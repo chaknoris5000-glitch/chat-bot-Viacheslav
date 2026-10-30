@@ -248,6 +248,7 @@ async function askAI(message, history, sessionId) {
   } catch (e) {}
 
   const clientConfig = await getClient(CLIENT_ID);
+  
   // ПРОМПТ БЕЗ ТВОИХ ЛИЧНЫХ ДАННЫХ (ТОЛЬКО ДЛЯ АВТОСЕРВИСА)
   const systemPrompt = clientConfig?.prompt || `Ты — AI-Администратор компании «${BUSINESS_NAME}». Ты опытный, живой менеджер по продажам. Твоя цель — проконсультировать клиента, собрать заявку и мягко работать с возражениями.
 1. Общайся естественно, как живой человек.
@@ -270,10 +271,20 @@ ${context || 'Информация временно недоступна.'}`;
 
   const lowerMsg = message.toLowerCase();
   
-  // ЖЕСТКИЕ ПРОВЕРКИ (ЗАЩИТА ОТ "КАШИ" И ПУСТЫХ ССЫЛОК)
-    if (lowerMsg.includes('тариф') || lowerMsg.includes('цен') || lowerMsg.includes('стоимост') || lowerMsg.includes('подробн')) {
-    reply = `Есть 4 тарифа:\n\n1. <b>Старт</b> — ...`;
+  // ОСТАВЛЯЕМ ТОЛЬКО ПРОВЕРКУ НА ССЫЛКУ (ЧТОБЫ ОН НЕ ВЫДУМЫВАЛ АДРЕС)
+  if (lowerMsg.includes('ссылка') || lowerMsg.includes('сайт') || lowerMsg.includes('адрес')) {
+    reply = `Наш официальный сайт: ${BASE_URL}\n\nТам вы можете посмотреть наши услуги, цены и оставить заявку.`;
   }
+
+  const leadData = extractLeadData(reply);
+  if (leadData.save && isValidLead(leadData.name, leadData.phone)) {
+    try {
+      const leadId = await saveLead(sessionId, leadData.name, leadData.phone, leadData.problem);
+      await notifyManager(leadData, leadId);
+    } catch (e) {}
+  }
+  return cleanReply(reply);
+}
 
 // ========== ЭКСПОРТ ==========
 async function buildXlsx(leads, title = 'Заявки') {
