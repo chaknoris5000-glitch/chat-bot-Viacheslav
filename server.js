@@ -271,32 +271,9 @@ ${context || 'Информация временно недоступна.'}`;
   const lowerMsg = message.toLowerCase();
   
   // ЖЕСТКИЕ ПРОВЕРКИ (ЗАЩИТА ОТ "КАШИ" И ПУСТЫХ ССЫЛОК)
-  if (lowerMsg.includes('тариф') || lowerMsg.includes('цен') || lowerMsg.includes('стоимост') || lowerMsg.includes('подробн')) {
-    reply = `Есть 4 тарифа:\n\n1. <b>Старт</b> — ${TARIFFS.start.amountMonth} ₽/мес (до 100 заявок)\n2. <b>Бизнес</b> — ${TARIFFS.business.amountMonth} ₽/мес (до 300 заявок)\n3. <b>Безлимит</b> — ${TARIFFS.unlimited.amountMonth} ₽/мес (без ограничений)\n4. <b>За результат</b> — ${PRICE_PER_LEAD} ₽ за заявку\n\nПервая неделя и настройка бесплатно. Какой объём заявок у вас обычно?\n\nПосмотреть тарифы: ${BASE_URL}/?go=tariffs`;
+    if (lowerMsg.includes('тариф') || lowerMsg.includes('цен') || lowerMsg.includes('стоимост') || lowerMsg.includes('подробн')) {
+    reply = `Есть 4 тарифа:\n\n1. <b>Старт</b> — ...`;
   }
-  
-  if (lowerMsg.includes('как работает') || lowerMsg.includes('как это работает')) {
-    if (!reply.includes('[SCROLL:')) reply += ' [SCROLL:how]';
-    if (!reply.includes(BASE_URL)) reply += `\n\nКак это работает: ${BASE_URL}/?go=how`;
-  }
-  
-  if (lowerMsg.includes('пример') || lowerMsg.includes('демо') || lowerMsg.includes('покажи')) {
-    reply = `Вы можете посмотреть живые примеры работы бота на нашем сайте. Там есть 4 демо-сайта: салон красоты, стоматология, автосервис и магазин запчастей.\n\nПосмотреть их можно здесь: ${BASE_URL}/?go=demos\nНажмите на любую карточку и протестируйте бота в действии.`;
-  }
-
-  if (lowerMsg.includes('ссылка') || lowerMsg.includes('сайт') || lowerMsg.includes('адрес')) {
-    reply = `Наш официальный сайт: ${BASE_URL}\n\nТам вы можете посмотреть тарифы, примеры работ и оставить заявку.`;
-  }
-
-  const leadData = extractLeadData(reply);
-  if (leadData.save && isValidLead(leadData.name, leadData.phone)) {
-    try {
-      const leadId = await saveLead(sessionId, leadData.name, leadData.phone, leadData.problem);
-      await notifyManager(leadData, leadId);
-    } catch (e) {}
-  }
-  return cleanReply(reply);
-}
 
 // ========== ЭКСПОРТ ==========
 async function buildXlsx(leads, title = 'Заявки') {
