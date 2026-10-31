@@ -71,6 +71,56 @@ async function extendPayment(clientId, months = 1) {
     body: JSON.stringify({ paid_until: base.toISOString(), updated_at: new Date().toISOString() })
   });
   return base;
+  
+}
+async function createYookassaPayment(chatId, tariffKey, period = 'month') {
+  const tariff = TARIFFS[tariffKey];
+  if (!tariff) return null;
+
+  const amount = period === 'year' ? tariff.amountYear : tariff.amountMonth;
+  const desc = period === 'year' ? `Годовая подписка ${tariff.name}` : `Месячная подписка ${tariff.name}`;
+
+  const idempotenceKey = `pay_${chatId}_${tariffKey}_${period}_${Date.now()}`;
+  const auth = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
+
+  try {
+    const r = await fetch('https://api.yookassa.ru/v3/payments', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Idempotence-Key': idempotenceKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        amount: { value: amount.toFixed(2), currency: 'RUB' },
+        capture: true,
+        confirmation: { type: 'redirect', return_url: YOOKASSA_RETURN_URL },
+        description: `AI-Администратор: ${desc}`,
+        receipt: {
+          customer: { email: 'chaknoris5000@gmail.com' },
+          items: [{
+            description: `Подписка ${tariff.name}`,
+            quantity: '1.00',
+            amount: { value: amount.toFixed(2), currency: 'RUB' },
+            vat_code: 1,
+            payment_mode: 'full_payment',
+            payment_subject: 'service'
+          }]
+        },
+        metadata: { chat_id: chatId.toString(), tariff: tariffKey, period: period }
+      })
+    });
+    
+    const data = await r.json();
+    if (r.ok && data.confirmation && data.confirmation.confirmation_url) {
+      return data.confirmation.confirmation_url;
+    }
+    console.log('Ошибка ЮKassa:', data);
+    return null;
+  } catch (e) {
+    console.log('Ошибка запроса к ЮKassa:', e.message);
+    return null;
+  }
 }
 
 // ========== БАЗА ==========
