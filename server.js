@@ -526,6 +526,7 @@ app.post('/api/support', async (req, res) => {
   }
 });
 
+// ---
 // --- ОПЛАТА ---
 app.post('/api/create-payment', async (req, res) => {
   try {
