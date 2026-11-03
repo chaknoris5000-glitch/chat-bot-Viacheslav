@@ -498,26 +498,46 @@
             try {
                 let data = [];
                 
-                if (currentUserTgId === ADMIN_TELEGRAM_ID && !window.currentClientId) {
-                    // Админ без параметров — грузим Tilda
+                // Если открыт view_client (админ смотрит чужую CRM)
+                if (window.currentClientId) {
+                    const res = await fetch(`${LOANS_URL}/rest/v1/leads?select=*&order=id.desc&client_id=eq.${window.currentClientId}`, {
+                        headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
+                    });
+                    data = await res.json();
+                } 
+                // Если это Админ в своем боте (без view_client)
+                else if (currentUserTgId === ADMIN_TELEGRAM_ID) {
                     const res = await fetch(`${TILDA_URL}/rest/v1/leads?select=*&order=id.desc`, {
                         headers: { 'apikey': TILDA_KEY, 'Authorization': `Bearer ${TILDA_KEY}` }
                     });
                     data = await res.json();
-                } else {
-                    // Остальные — грузим через сервер (loans-bot)
-                    // Если window.currentClientId не задан, сервер вернет пустоту (или ошибку, которую мы обработаем)
-                    let url = `/api/get-leads`;
-                    if (window.currentClientId) {
-                        url += `?client_id=${window.currentClientId}`;
-                    }
-                    
-                    const res = await fetch(url);
-                    data = await res.json();
-                    
-                    // Если сервер вернул не массив (ошибку), делаем пустой массив
-                    if (!Array.isArray(data)) data = [];
                 }
+                // Обычный клиент (Вячеслав) в своем боте
+                else {
+                    // Находим его client_id по telegram_id (через базу loans-bot)
+                    const clientRes = await fetch(`${LOANS_URL}/rest/v1/clients?owner_telegram_id=eq.${currentUserTgId}&select=client_id`, {
+                        headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
+                    });
+                    const clients = await clientRes.json();
+                    
+                    if (Array.isArray(clients) && clients.length > 0) {
+                        const myClientId = clients[0].client_id;
+                        // Проверка: если он в чужом боте — пустота
+                        const urlParams = new URLSearchParams(window.location.search);
+                        if (urlParams.get('view_client') && urlParams.get('view_client') !== myClientId) {
+                            data = [];
+                        } else {
+                            const res = await fetch(`${LOANS_URL}/rest/v1/leads?select=*&order=id.desc&client_id=eq.${myClientId}`, {
+                                headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
+                            });
+                            data = await res.json();
+                        }
+                    } else {
+                        data = [];
+                    }
+                }
+                
+                if (!Array.isArray(data)) data = [];
                 
                 allLeads = data;
                 updateStats(allLeads);
