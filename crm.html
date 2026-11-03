@@ -441,10 +441,15 @@
                 async function checkAuth() {
             const urlParams = new URLSearchParams(window.location.search);
             
-            // 1. Если в ссылке есть telegram_id — берем его
-            if (urlParams.get('auth_success') === '1' && urlParams.get('telegram_id')) {
-                currentUserTgId = Number(urlParams.get('telegram_id'));
-            } 
+            // 3. Если в ссылке есть view_client — значит это админ зашел в бота клиента
+            else if (urlParams.get('view_client')) {
+                // Проверяем, что это именно Админ зашел по ссылке
+                const checkId = Number(urlParams.get('telegram_id'));
+                if (checkId === ADMIN_TELEGRAM_ID) {
+                    currentUserTgId = ADMIN_TELEGRAM_ID;
+                    window.currentClientId = urlParams.get('view_client');
+                }
+            }
             // 2. Если открыто в Telegram (Mini App) — берем оттуда
             else if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
                 currentUserTgId = window.Telegram.WebApp.initDataUnsafe.user.id;
