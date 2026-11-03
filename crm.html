@@ -438,31 +438,46 @@
             });
         }
 
-                async function checkAuth() {
+        async function checkAuth() {
             const urlParams = new URLSearchParams(window.location.search);
             
-            // 1. Если в ссылке есть telegram_id — берем его
-            if (urlParams.get('auth_success') === '1' && urlParams.get('telegram_id')) {
+            // Если есть telegram_id в ссылке - берем его
+            if (urlParams.get('telegram_id')) {
                 currentUserTgId = Number(urlParams.get('telegram_id'));
             } 
-            // 2. Если открыто в Telegram (Mini App) — берем оттуда, но БЕЗ ПАДЕНИЯ
+            // Иначе пробуем взять из Telegram
             else {
                 try {
                     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
                         currentUserTgId = window.Telegram.WebApp.initDataUnsafe.user.id;
                     }
-                } catch (e) {
-                    console.log('Telegram WebApp не доступен, работаем по ссылке');
-                }
+                } catch (e) {}
             }
-
-            // 3. Если есть view_client (админ смотрит чужой бот)
-            if (urlParams.get('view_client')) {
-                if (Number(urlParams.get('telegram_id')) === ADMIN_TELEGRAM_ID) {
-                    currentUserTgId = ADMIN_TELEGRAM_ID;
+            
+            // Принудительно показываем контейнер, если хоть что-то нашли
+            if (currentUserTgId) {
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('crm-container').style.display = 'flex';
+                
+                const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
+                
+                // Логика выбора базы
+                if (urlParams.get('view_client')) {
                     window.currentClientId = urlParams.get('view_client');
                 }
+
+                if (isAdmin && (!window.currentClientId || window.currentClientId === 'tilda')) {
+                    SUPABASE_URL = TILDA_URL;
+                    SUPABASE_KEY = TILDA_KEY;
+                } else {
+                    SUPABASE_URL = LOANS_URL;
+                    SUPABASE_KEY = LOANS_KEY;
+                }
+                
+                loadLeads();
+                window.history.replaceState({}, document.title, "/crm");
             }
+        }
             
             // Принудительно показываем CRM, если есть хоть какой-то ID
             if (currentUserTgId) {
