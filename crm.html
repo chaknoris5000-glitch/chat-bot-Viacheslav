@@ -466,8 +466,11 @@
             }
             
             if (currentUserTgId) {
+                // Принудительно показываем контейнер, даже если данные не загрузятся
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('crm-container').style.display = 'flex';
+                
+                // Дальше твой код...
                 
                 const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
                 
