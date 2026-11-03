@@ -140,7 +140,8 @@
     <div id="supportModal" class="modal-overlay"><div class="modal-box"><div class="modal-title">Поддержка</div><p style="font-size: 14px; color: var(--hint); margin-bottom: 16px;">Опишите вашу проблему, и мы свяжемся с вами.</p><div class="form-group"><textarea id="support-text" rows="4" placeholder="Ваше сообщение..."></textarea></div><button class="btn btn-primary" onclick="sendSupport()">Отправить</button><button class="btn btn-outline" onclick="closeModal('supportModal')">Отмена</button></div></div>
 
     <script>
-        const ADMIN_TELEGRAM_ID = 5818548555; 
+        const ADMIN_TELEGRAM_ID = 5818548555;
+        const BOT_CLIENT_ID = 'viacheslav'; 
         const tg = window.Telegram.WebApp;
         tg.expand();
 
@@ -390,9 +391,7 @@
             closeModal('supportModal');
         }
 
-        function goToCRM() { 
-    window.location.href = '/crm?auth_success=1&telegram_id=' + tg.initDataUnsafe.user.id + '&view_client=' + 'viacheslav'; 
-}
+function goToCRM() { window.location.href = '/crm?auth_success=1&telegram_id=' + tg.initDataUnsafe.user.id + '&view_client=' + BOT_CLIENT_ID; }
         init();
     </script>
 </body>
