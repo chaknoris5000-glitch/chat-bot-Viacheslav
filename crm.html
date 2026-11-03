@@ -1,413 +1,3 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI CRM - Пульт управления</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <style>
-        :root {
-            --bg: #f4f6f8; --sidebar-bg: #ffffff; --primary: #1e3a2f; --primary-light: #2F5B43;
-            --accent: #3b82f6; --text-main: #0f172a; --text-muted: #64748b; --border: #e2e8f0;
-            --card-shadow: 0 1px 3px rgba(0,0,0,0.05); --danger: #ef4444; --success: #10b981;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; background: var(--bg); color: var(--text-main); display: flex; min-height: 100vh; }
-
-        /* --- Sidebar --- */
-        .sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; position: fixed; height: 100%; left: 0; top: 0; z-index: 100; }
-        .logo { font-size: 18px; font-weight: 800; color: var(--primary); margin-bottom: 24px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
-        
-        .sidebar-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
-        .sidebar-actions .btn { width: 100%; justify-content: center; }
-
-        .menu-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; margin-top: 10px; font-weight: 700; }
-        .menu-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; color: var(--text-muted); font-weight: 500; transition: all 0.2s; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
-        .menu-item:hover { background: #f1f5f9; color: var(--text-main); }
-        .menu-item.active { background: #e8f0ec; color: var(--primary-light); font-weight: 600; }
-        .menu-item svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-right: 10px; }
-        .menu-item-left { display: flex; align-items: center; }
-        .badge-count { background: var(--danger); color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
-
-        /* --- Main Content --- */
-        .main-content { flex: 1; margin-left: 260px; padding: 30px; max-width: 1400px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .header h1 { font-size: 24px; font-weight: 700; }
-        
-        .btn { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: var(--primary-light); }
-        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-main); }
-        .btn-outline:hover { background: #f8fafc; }
-        .btn-sm { padding: 4px 8px; font-size: 11px; }
-        .btn-danger { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
-
-        /* --- Stats --- */
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-        .stat-card { background: white; padding: 16px; border-radius: 10px; border: 1px solid var(--border); box-shadow: var(--card-shadow); }
-        .stat-title { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
-        .stat-value { font-size: 26px; font-weight: 800; }
-
-        /* --- Kanban --- */
-        .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; min-height: 60vh; }
-        .kanban-col { flex: 1; min-width: 300px; background: #f8fafc; border-radius: 10px; padding: 12px; border: 1px solid var(--border); }
-        .col-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; padding: 4px 8px; margin-bottom: 10px; color: #475569; }
-        .kanban-card { background: white; border-radius: 8px; padding: 12px; border: 1px solid var(--border); box-shadow: var(--card-shadow); cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
-        .kanban-card:hover { border-color: #cbd5e1; }
-        .k-title { font-weight: 700; font-size: 14px; display: flex; justify-content: space-between; }
-        .k-amount { color: var(--success); }
-        .k-phone { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
-        .k-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
-        .k-tag { font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569; }
-        .k-actions { margin-top: 10px; border-top: 1px solid #f1f5f9; padding-top: 8px; display: flex; justify-content: flex-end; }
-
-        /* --- Table --- */
-        .table-container { background: white; border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; text-align: left; }
-        th { background: #f8fafc; padding: 12px 16px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
-        td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
-        tr:hover td { background: #f8fafc; cursor: pointer; }
-
-        /* --- Filters --- */
-        .filters-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-        .filter-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--text-muted); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-        .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-        .filter-input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
-
-        /* --- Modal / Client Card --- */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.5); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 24px; border-radius: 12px; width: 95%; max-width: 650px; max-height: 90vh; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .modal-title { font-size: 20px; font-weight: 700; }
-        
-        .status-panel { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-        .current-status { font-weight: bold; font-size: 14px; padding: 4px 10px; border-radius: 6px; }
-        .status-new { background: #eff6ff; color: #1d4ed8; }
-        .status-progress { background: #fffbeb; color: #b45309; }
-        .status-closed { background: #f0fdf4; color: #15803d; }
-        .status-archived { background: #f1f5f9; color: #475569; }
-        .status-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-        .contact-actions { display: flex; gap: 8px; margin-bottom: 20px; }
-        .btn-contact { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; font-size: 12px; border-radius: 8px; text-decoration: none; font-weight: 600; border: none; cursor: pointer; }
-        .btn-call { background: #eff6ff; color: #1d4ed8; }
-        .btn-tg { background: #e0f2fe; color: #0284c7; }
-        .btn-email { background: #f3f4f6; color: #374151; }
-        
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-        .form-group { display: flex; flex-direction: column; gap: 4px; }
-        .form-group.full { grid-column: span 2; }
-        .form-group label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
-        .form-group input, .form-group select, .form-group textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; outline: none; font-family: inherit; }
-
-        .settings-section { background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; }
-        .settings-section h3 { font-size: 16px; margin-bottom: 15px; color: var(--primary); }
-        .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
-        .settings-row:last-child { border-bottom: none; padding-bottom: 0; }
-
-        /* --- Mobile --- */
-        @media (max-width: 768px) {
-            .mobile-small-btn { font-size: 10px !important; }
-            body { flex-direction: column; padding-bottom: 64px; }
-            .sidebar { width: 100%; height: 60px; flex-direction: row; bottom: 0; top: auto; padding: 0; justify-content: space-around; z-index: 1000; }
-            .logo, .menu-label, .sidebar-actions { display: none !important; }
-            .menu-item { flex-direction: column; font-size: 10px; padding: 8px; margin: 0; gap: 4px; }
-            .menu-item svg { margin: 0; width: 20px; height: 20px; }
-            .menu-item.active { background: none; color: var(--primary-light); }
-            .main-content { margin-left: 0; padding: 16px; padding-top: 70px; }
-            .header { flex-direction: column; align-items: flex-start; gap: 12px; }
-            .header-actions-mobile { 
-                display: flex !important; gap: 10px; width: 100%; margin-bottom: 0; 
-                position: fixed; top: 0; left: 0; right: 0; z-index: 990; 
-                background: #f4f6f8; padding: 12px 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            }
-            .btn { flex: 1; justify-content: center; }
-            .stats-grid { grid-template-columns: 1fr 1fr; }
-            .kanban-board { flex-direction: row; overflow-x: hidden; gap: 4px; padding-bottom: 10px; }
-            .kanban-col { flex: 1; min-width: 0; padding: 4px; margin-right: 0; }
-            .kanban-card { padding: 8px; }
-            .col-header { font-size: 10px; padding: 2px 4px; }
-            .k-title { font-size: 11px; }
-            .k-phone { font-size: 10px; }
-            .k-tag { font-size: 8px; padding: 1px 4px; }
-            .form-grid { grid-template-columns: 1fr; }
-            .form-group.full { grid-column: span 1; }
-        }
-        @media (min-width: 769px) {
-            .header-actions-mobile { display: none; }
-        }
-    </style>
-</head>
-<body>
-    <div id="auth-container" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; width:100%;">
-        <h2 style="color: var(--primary); margin-bottom: 10px;">AI CRM</h2>
-        <div id="telegram-login-btn">
-            <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="vadim602_bot" data-size="large" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
-        </div>
-    </div>
-
-    <div id="crm-container" style="display: none; width: 100%;">
-        
-        <div class="header-actions-mobile">
-            <button class="btn btn-primary" id="add-client-btn-mobile" onclick="openCreateModal()">+ Клиент</button>
-            <button class="btn btn-outline" onclick="exportToExcel()">Excel</button>
-        </div>
-
-        <div class="sidebar">
-            <div class="logo">AI CRM</div>
-            
-            <div class="sidebar-actions">
-                <button class="btn btn-primary" id="add-client-btn" onclick="openCreateModal()">+ Добавить клиента</button>
-                <button class="btn btn-outline" onclick="exportToExcel()">Скачать Excel</button>
-            </div>
-
-            <div class="menu-label">Рабочее пространство</div>
-            <div class="menu-item active" onclick="switchTab('kanban')">
-                <div class="menu-item-left">
-                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
-                    Воронка
-                </div>
-            </div>
-            <div class="menu-item" onclick="switchTab('list')">
-                <div class="menu-item-left">
-                    <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-                    Все заявки
-                </div>
-            </div>
-            <div class="menu-item" onclick="switchTab('clients')">
-                <div class="menu-item-left">
-                    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    База клиентов
-                </div>
-            </div>
-            <div class="menu-item" onclick="switchTab('tasks')">
-                <div class="menu-item-left">
-                    <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    Задачи
-                </div>
-                <span class="badge-count" id="task-count" style="display:none;">0</span>
-            </div>
-
-            <div class="menu-label">Настройки</div>
-            <div class="menu-item" onclick="switchTab('settings')">
-                <div class="menu-item-left">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    Настройки
-                </div>
-            </div>
-        </div>
-
-        <div class="main-content">
-            <div class="header">
-                <h1 id="page-title">Воронка продаж</h1>
-            </div>
-            <div class="stats-grid" id="stats-block">
-                <div class="stat-card"><div class="stat-title">Всего лидов</div><div class="stat-value" id="stat-total">0</div></div>
-                <div class="stat-card"><div class="stat-title">В работе</div><div class="stat-value" id="stat-progress" style="color: #b45309;">0</div></div>
-                <div class="stat-card"><div class="stat-title">Выполнено</div><div class="stat-value" id="stat-closed" style="color: #15803d;">0</div></div>
-                <div class="stat-card" style="background: #f1f5f9; border-color: #e2e8f0;"><div class="stat-title" style="color: #475569;">Архив</div><div class="stat-value" id="stat-archive" style="color: #475569;">0</div></div>
-            </div>
-            <div id="kanban-view" class="kanban-board"></div>
-
-            <div id="list-view" style="display: none;">
-                <div class="filters-bar">
-                    <button class="filter-btn active" onclick="filterLeadsByStatus('all', this)">Все</button>
-                    <button class="filter-btn" onclick="filterLeadsByStatus('new', this)">Новые</button>
-                    <button class="filter-btn" onclick="filterLeadsByStatus('in_progress', this)">В работе</button>
-                    <button class="filter-btn" onclick="filterLeadsByStatus('closed', this)">Выполнено</button>
-                    <button class="filter-btn" onclick="filterLeadsByStatus('archived', this)">Архив</button>
-                    <input type="date" class="filter-input" id="list-filter-date" onchange="applyListFilters()">
-                    <input type="text" class="filter-input" id="list-filter-search" placeholder="Имя или телефон" oninput="applyListFilters()">
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>ID</th><th>Клиент</th><th>Телефон</th><th>Услуга</th><th>Сумма</th><th>Дата</th><th>Статус</th></tr></thead>
-                        <tbody id="leadsBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="clients-view" style="display: none;">
-                <div class="filters-bar">
-                    <input type="text" class="filter-input" id="client-filter-name" placeholder="Поиск по имени" oninput="applyClientBaseFilters()">
-                    <input type="text" class="filter-input" id="client-filter-phone" placeholder="Поиск по телефону" oninput="applyClientBaseFilters()">
-                    <input type="date" class="filter-input" id="client-filter-date" onchange="applyClientBaseFilters()">
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>Имя</th><th>Телефон</th><th>Услуги</th><th>Сумма</th><th>Последняя дата</th></tr></thead>
-                        <tbody id="clientsBaseBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="tasks-view" style="display: none;">
-                <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
-                    <button class="btn btn-primary" onclick="openTaskModal()">+ Добавить задачу</button>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>Задача</th><th>Клиент</th><th>Когда</th><th>Действие</th></tr></thead>
-                        <tbody id="tasksBody"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="settings-view" style="display: none;">
-                <div class="settings-section">
-                    <h3>Профиль владельца</h3>
-                    <div class="settings-row"><span>Имя</span><input type="text" class="filter-input" value="Владелец" style="width: 200px;"></div>
-                    <div class="settings-row"><span>Контакт</span><input type="text" class="filter-input" value="+7 (999) 000-00-00" style="width: 200px;"></div>
-                </div>
-
-                <div class="settings-section">
-                    <h3>Внешний вид</h3>
-                    <div class="settings-row"><span>Тёмная тема</span><input type="checkbox" id="theme-toggle" onchange="toggleTheme()" style="width: 20px; height: 20px;"></div>
-                </div>
-
-                <div class="settings-section">
-                    <h3>Уведомления</h3>
-                    <div class="settings-row"><span>Новые заявки</span><input type="checkbox" checked style="width: 20px; height: 20px;"></div>
-                    <div class="settings-row"><span>Напоминания о задачах</span><input type="checkbox" checked style="width: 20px; height: 20px;"></div>
-                    <div class="settings-row"><span>Ежедневный отчет</span><input type="checkbox" style="width: 20px; height: 20px;"></div>
-                </div>
-
-                <div class="settings-section">
-                    <h3>Интеграции</h3>
-                    <div class="settings-row"><span>Почта</span><button class="btn btn-outline" onclick="alert('Для подключения почты нужен SMTP-сервер. Мы работаем над этим!')">Подключить</button></div>
-                    <div class="settings-row"><span>WhatsApp</span><button class="btn btn-outline" onclick="alert('Для подключения WhatsApp нужен API. Мы работаем над этим!')">Подключить</button></div>
-                </div>
-
-                <div class="settings-section">
-                    <h3>Обратная связь</h3>
-                    <div class="settings-row"><span>Оставить отзыв о работе</span><button class="btn btn-outline" onclick="window.open('https://t.me/vadim602_bot', '_blank')">Написать</button></div>
-                    <div class="settings-row"><span>Сообщить о проблеме</span><button class="btn btn-outline" onclick="window.open('https://t.me/vadim602_bot', '_blank')">Написать</button></div>
-                </div>
-
-                <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" onclick="window.location.reload()">Выйти</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="clientModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Карточка <span id="edit-id" style="color:#94a3b8; font-size:14px;"></span></div>
-                <div style="cursor:pointer; font-size:24px;" onclick="closeModal()">&times;</div>
-            </div>
-
-            <div class="status-panel" id="status-panel">
-                <div id="current-status-badge" class="current-status"></div>
-                <div class="status-actions" id="status-buttons"></div>
-            </div>
-
-            <div class="contact-actions">
-                <a href="#" id="btn-call" class="btn-contact btn-call">📞 Позвонить</a>
-                <a href="#" id="btn-tg" class="btn-contact btn-tg" target="_blank">✈️ Telegram</a>
-                <a href="#" id="btn-email" class="btn-contact btn-email">✉️ Почта</a>
-            </div>
-          
-            <div id="bot-creation-block" style="margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
-                <h4 style="margin-bottom: 10px; color: var(--primary);">Управление ботом</h4>
-                
-                <div id="create-bot-fields">
-                    <div class="form-group" style="margin-bottom: 8px;"><label>ID клиента (латиницей)</label><input type="text" id="bot-client-id" placeholder="например: salon1"></div>
-                    <div class="form-group" style="margin-bottom: 8px;"><label>Название бизнеса</label><input type="text" id="bot-business-name" placeholder="например: Салон красоты"></div>
-                    <div class="form-group" style="margin-bottom: 8px;"><label>Ссылка на сайт</label><input type="text" id="bot-site-url" placeholder="https://..."></div>
-                    <div class="form-group" style="margin-bottom: 8px;"><label>Токен Telegram-бота</label><input type="text" id="bot-token" placeholder="123456:ABC-DEF..."></div>
-                    <div class="form-group" style="margin-bottom: 8px;"><label>Telegram ID владельца (для доступа)</label><input type="text" id="bot-owner-id" placeholder="Например: 123456789"></div>
-                    <button class="btn btn-primary" style="width: 100%;" onclick="createBotFromCard()">🚀 Создать бота</button>
-                </div>
-
-                <div id="widget-download-container" style="display: none; margin-top: 10px;">
-                    <button class="btn btn-primary" style="width: 100%; background: var(--success);" onclick="downloadWidget()">📥 Скачать код виджета</button>
-                </div>
-            </div>
-            
-            <div class="form-grid">
-                <div class="form-group full"><label>Имя</label><input type="text" id="edit-name"></div>
-                
-                <div class="form-group full" style="margin-bottom: 5px;"><label>Телефоны</label></div>
-                <div id="phones-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
-                <button class="btn btn-outline btn-sm" type="button" onclick="addPhoneField()" style="margin-bottom: 15px;">+ Добавить телефон</button>
-
-                <div class="form-group full" style="margin-bottom: 5px;"><label>Услуги</label></div>
-                <div id="services-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
-                <button class="btn btn-outline btn-sm" type="button" onclick="addServiceField()" style="margin-bottom: 15px;">+ Добавить услугу</button>
-
-                <div class="form-group"><label>Сумма (₽)</label><input type="number" id="edit-amount"></div>
-                <div class="form-group"><label>Оплачено?</label>
-                    <select id="edit-paid"><option value="false">Нет</option><option value="true">Да</option></select>
-                </div>
-                <div class="form-group full"><label>Заметка / Задача</label><textarea id="edit-notes" rows="2"></textarea></div>
-            </div>
-            
-            <div style="margin-top: 15px;">
-                <button class="btn btn-danger btn-sm" onclick="archiveLead()">📦 Перенести в архив</button>
-            </div>
-
-            <div style="display:flex; justify-content:space-between; margin-top:20px;">
-                <div>
-                    <button class="btn btn-outline btn-sm" onclick="copyTemplate()">📋 Копировать шаблон</button>
-                </div>
-                <div>
-                    <button class="btn btn-danger btn-sm" onclick="deleteLead()">Удалить</button>
-                    <button class="btn btn-primary" onclick="saveLead()">Сохранить</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="createModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Новый клиент</div>
-                <div style="cursor:pointer; font-size:24px;" onclick="closeCreateClientModal()">&times;</div>
-            </div>
-            <div class="form-grid">
-                <div class="form-group full"><label>ID клиента (латиницей)</label><input type="text" id="newClientId" placeholder="salon1"></div>
-                <div class="form-group full"><label>Название бизнеса</label><input type="text" id="newBusinessName" placeholder="Салон красоты"></div>
-                <div class="form-group full"><label>Ссылка на сайт</label><input type="text" id="newSiteUrl" placeholder="https://..."></div>
-                <div class="form-group full"><label>Токен Telegram-бота</label><input type="text" id="newBotToken" placeholder="123456:ABC-DEF..."></div>
-                <div class="form-group full"><label>Telegram ID владельца (для доступа)</label><input type="text" id="newOwnerId" placeholder="Например: 123456789"></div>
-                <div class="form-group full">
-    <label>Часовой пояс</label>
-    <select id="newTimezone" class="filter-input" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;">
-        <option value="Europe/Moscow">Москва (UTC+3)</option>
-        <option value="Asia/Yekaterinburg">Екатеринбург (UTC+5)</option>
-        <option value="Asia/Novosibirsk">Новосибирск (UTC+7)</option>
-        <option value="Asia/Novokuznetsk">Кузбасс (UTC+7)</option>
-        <option value="Asia/Krasnoyarsk">Красноярск (UTC+7)</option>
-        <option value="Asia/Vladivostok">Владивосток (UTC+10)</option>
-    </select>
-</div>
-            </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                <button class="btn btn-outline" onclick="closeCreateClientModal()">Отмена</button>
-                <button class="btn btn-primary" onclick="submitNewClient()">Создать</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="taskModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Новая задача</div>
-                <div style="cursor:pointer; font-size:24px;" onclick="closeTaskModal()">&times;</div>
-            </div>
-            <div class="form-grid">
-                <div class="form-group full"><label>Клиент</label><select id="task-client-id"></select></div>
-                <div class="form-group full"><label>Что сделать?</label><input type="text" id="task-text" placeholder="Перезвонить..."></div>
-                <div class="form-group full"><label>Когда?</label><input type="datetime-local" id="task-date"></div>
-            </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                <button class="btn btn-outline" onclick="closeTaskModal()">Отмена</button>
-                <button class="btn btn-primary" onclick="saveTask()">Создать</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         // ДВА НАБОРА КЛЮЧЕЙ
         const TILDA_URL = 'https://ozutjnwextahorvzdbpl.supabase.co';
@@ -423,7 +13,6 @@
         let currentUserTgId = null;
         let currentListStatus = 'all';
         
-        // ДИНАМИЧЕСКИЕ ПЕРЕМЕННЫЕ (заполнятся после проверки)
         let SUPABASE_URL = TILDA_URL;
         let SUPABASE_KEY = TILDA_KEY;
 
@@ -441,12 +30,9 @@
         async function checkAuth() {
             const urlParams = new URLSearchParams(window.location.search);
             
-            // Если есть telegram_id в ссылке - берем его
             if (urlParams.get('telegram_id')) {
                 currentUserTgId = Number(urlParams.get('telegram_id'));
-            } 
-            // Иначе пробуем взять из Telegram
-            else {
+            } else {
                 try {
                     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user) {
                         currentUserTgId = window.Telegram.WebApp.initDataUnsafe.user.id;
@@ -454,39 +40,15 @@
                 } catch (e) {}
             }
             
-            // Принудительно показываем контейнер, если хоть что-то нашли
             if (currentUserTgId) {
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('crm-container').style.display = 'flex';
                 
-                const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
-                
-                // Логика выбора базы
                 if (urlParams.get('view_client')) {
                     window.currentClientId = urlParams.get('view_client');
                 }
 
-                if (isAdmin && (!window.currentClientId || window.currentClientId === 'tilda')) {
-                    SUPABASE_URL = TILDA_URL;
-                    SUPABASE_KEY = TILDA_KEY;
-                } else {
-                    SUPABASE_URL = LOANS_URL;
-                    SUPABASE_KEY = LOANS_KEY;
-                }
-                
-                loadLeads();
-                window.history.replaceState({}, document.title, "/crm");
-            }
-        }
-            
-            // Принудительно показываем CRM, если есть хоть какой-то ID
-            if (currentUserTgId) {
-                document.getElementById('auth-container').style.display = 'none';
-                document.getElementById('crm-container').style.display = 'flex';
-                
                 const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
-                
-                // Выбираем базу для запросов
                 if (isAdmin && (!window.currentClientId || window.currentClientId === 'tilda')) {
                     SUPABASE_URL = TILDA_URL;
                     SUPABASE_KEY = TILDA_KEY;
@@ -496,29 +58,27 @@
                 }
                 
                 loadLeads();
-                window.history.replaceState({}, document.title, "/crm");
             }
         }
+        window.onload = checkAuth;
+
         // DATA
         async function loadLeads() {
             try {
                 let data = [];
                 
-                // Если открыт view_client (админ смотрит чужую CRM)
                 if (window.currentClientId) {
                     const res = await fetch(`${LOANS_URL}/rest/v1/leads?select=*&order=id.desc&client_id=eq.${window.currentClientId}`, {
                         headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
                     });
                     data = await res.json();
                 } 
-                // Если это Админ в своем боте (без view_client)
                 else if (currentUserTgId === ADMIN_TELEGRAM_ID) {
                     const res = await fetch(`${TILDA_URL}/rest/v1/leads?select=*&order=id.desc`, {
                         headers: { 'apikey': TILDA_KEY, 'Authorization': `Bearer ${TILDA_KEY}` }
                     });
                     data = await res.json();
                 }
-                // Обычный клиент (Вячеслав) в своем боте
                 else {
                     const clientRes = await fetch(`${LOANS_URL}/rest/v1/clients?owner_telegram_id=eq.${currentUserTgId}&select=client_id`, {
                         headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
@@ -556,8 +116,6 @@
                 updateStats(allLeads);
             }
         }
-
-        // RENDER
 
         // RENDER
         function updateStats(data) {
@@ -789,7 +347,6 @@
                 document.getElementById('btn-email').style.opacity = '0.5';
             }
 
-            // Показываем управление ботом только Админу
             if (currentUserTgId === ADMIN_TELEGRAM_ID) {
                 if (lead.client_id && lead.client_id !== 'tilda') {
                     document.getElementById('create-bot-fields').style.display = 'none';
@@ -804,7 +361,6 @@
                     document.getElementById('bot-owner-id').value = '';
                 }
             } else {
-                // У клиентов (Екатерины) этого блока вообще не будет
                 document.getElementById('bot-creation-block').style.display = 'none';
             }
             
@@ -1177,5 +733,3 @@
             document.body.removeChild(link);
         }
     </script>
-</body>
-</html>
