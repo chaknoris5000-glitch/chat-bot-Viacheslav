@@ -390,7 +390,9 @@
             closeModal('supportModal');
         }
 
-        function goToCRM() { window.location.href = '/crm?auth_success=1&telegram_id=' + tg.initDataUnsafe.user.id; }
+        function goToCRM() { 
+    window.location.href = '/crm?auth_success=1&telegram_id=' + tg.initDataUnsafe.user.id + '&view_client=' + 'viacheslav'; 
+}
         init();
     </script>
 </body>
