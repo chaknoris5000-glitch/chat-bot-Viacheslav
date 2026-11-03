@@ -396,43 +396,22 @@
         }
         window.onload = checkAuth;
 
-        async function loadLeads() {
+               async function loadLeads() {
             try {
                 let data = [];
+                let url = `/api/get-leads?telegram_id=${currentUserTgId}`;
                 
+                // Если мы знаем, в каком боте находимся (Админ смотрит чужой бот)
                 if (window.currentClientId) {
-                    const res = await fetch(`${LOANS_URL}/rest/v1/leads?select=*&order=id.desc&client_id=eq.${window.currentClientId}`, {
-                        headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
-                    });
-                    data = await res.json();
+                    url += `&client_id=${window.currentClientId}`;
                 } 
+                // Если это Админ в своем боте (без view_client)
                 else if (currentUserTgId === ADMIN_TELEGRAM_ID) {
-                    const res = await fetch(`${TILDA_URL}/rest/v1/leads?select=*&order=id.desc`, {
-                        headers: { 'apikey': TILDA_KEY, 'Authorization': `Bearer ${TILDA_KEY}` }
-                    });
-                    data = await res.json();
+                    url += `&client_id=tilda`;
                 }
-                else {
-                    const clientRes = await fetch(`${LOANS_URL}/rest/v1/clients?owner_telegram_id=eq.${currentUserTgId}&select=client_id`, {
-                        headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
-                    });
-                    const clients = await clientRes.json();
-                    
-                    if (Array.isArray(clients) && clients.length > 0) {
-                        const myClientId = clients[0].client_id;
-                        const urlParams = new URLSearchParams(window.location.search);
-                        if (urlParams.get('view_client') && urlParams.get('view_client') !== myClientId) {
-                            data = [];
-                        } else {
-                            const res = await fetch(`${LOANS_URL}/rest/v1/leads?select=*&order=id.desc&client_id=eq.${myClientId}`, {
-                                headers: { 'apikey': LOANS_KEY, 'Authorization': `Bearer ${LOANS_KEY}` }
-                            });
-                            data = await res.json();
-                        }
-                    } else {
-                        data = [];
-                    }
-                }
+
+                const res = await fetch(url);
+                data = await res.json();
                 
                 if (!Array.isArray(data)) data = [];
                 
