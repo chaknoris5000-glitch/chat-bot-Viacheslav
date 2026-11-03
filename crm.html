@@ -472,9 +472,15 @@
                 const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
                 
                 // Выбираем базу для запросов
-                if (isAdmin && !window.currentClientId) {
-                    SUPABASE_URL = TILDA_URL;
-                    SUPABASE_KEY = TILDA_KEY;
+                if (isAdmin) {
+                    // Админ всегда смотрит в TILDA, если это его бот (без view_client или с view_client=tilda)
+                    if (!window.currentClientId || window.currentClientId === 'tilda') {
+                        SUPABASE_URL = TILDA_URL;
+                        SUPABASE_KEY = TILDA_KEY;
+                    } else {
+                        SUPABASE_URL = LOANS_URL;
+                        SUPABASE_KEY = LOANS_KEY;
+                    }
                 } else {
                     SUPABASE_URL = LOANS_URL;
                     SUPABASE_KEY = LOANS_KEY;
