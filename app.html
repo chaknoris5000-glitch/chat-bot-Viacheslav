@@ -180,14 +180,7 @@
             const user = tg.initDataUnsafe?.user;
             if (!user) return;
             document.getElementById('greeting').innerText = `Привет, ${user.first_name}!`;
-            if (user.id !== ADMIN_TELEGRAM_ID) {
-    const resClient = await fetch(`/api/get-my-client?owner_telegram_id=${user.id}`);
-    const client = await resClient.json();
-    if (!client || client.client_id !== 'viacheslav') {
-        tg.close();
-        return;
-    }
-}
+            
             try {
                 // Теперь Mini App не лезет в базу напрямую, а стучится к серверу
                 const resClient = await fetch(`/api/get-my-client?owner_telegram_id=${user.id}`);
