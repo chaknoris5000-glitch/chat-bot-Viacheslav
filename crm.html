@@ -390,10 +390,21 @@
                     SUPABASE_URL = LOANS_URL;
                     SUPABASE_KEY = LOANS_KEY;
                 }
-                
+                                // Если это обычный клиент, и он зашел в бота Тильды — не даем ему смотреть
+                if (!isAdmin && window.currentClientId === 'tilda') {
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('crm-container').style.display = 'flex';
+                    document.getElementById('stat-total').innerText = '0';
+                    document.getElementById('stat-progress').innerText = '0';
+                    document.getElementById('stat-closed').innerText = '0';
+                    document.getElementById('stat-archive').innerText = '0';
+                    document.getElementById('kanban-view').innerHTML = '<div style="width:100%; text-align:center; padding:50px; color:#64748b;">У вас нет доступа к этой CRM</div>';
+                    return; 
+                }
                 loadLeads();
             }
         }
+        
         window.onload = checkAuth;
 
                async function loadLeads() {
