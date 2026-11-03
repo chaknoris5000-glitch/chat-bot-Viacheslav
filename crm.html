@@ -438,7 +438,7 @@
             });
         }
 
-        async function checkAuth() {
+                async function checkAuth() {
             const urlParams = new URLSearchParams(window.location.search);
             
             // 1. Если в ссылке есть telegram_id — берем его
@@ -458,7 +458,6 @@
 
             // 3. Если есть view_client (админ смотрит чужой бот)
             if (urlParams.get('view_client')) {
-                // Если мы зашли по ссылке с telegram_id админа — пускаем
                 if (Number(urlParams.get('telegram_id')) === ADMIN_TELEGRAM_ID) {
                     currentUserTgId = ADMIN_TELEGRAM_ID;
                     window.currentClientId = urlParams.get('view_client');
@@ -466,22 +465,15 @@
             }
             
             if (currentUserTgId) {
-                // Принудительно показываем контейнер, даже если данные не загрузятся
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('crm-container').style.display = 'flex';
                 
-                 const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
+                const isAdmin = currentUserTgId === ADMIN_TELEGRAM_ID;
                 
                 // Выбираем базу для запросов
-                if (isAdmin) {
-                    // Админ всегда смотрит в TILDA, если это его бот (без view_client или с view_client=tilda)
-                    if (!window.currentClientId || window.currentClientId === 'tilda') {
-                        SUPABASE_URL = TILDA_URL;
-                        SUPABASE_KEY = TILDA_KEY;
-                    } else {
-                        SUPABASE_URL = LOANS_URL;
-                        SUPABASE_KEY = LOANS_KEY;
-                    }
+                if (isAdmin && (!window.currentClientId || window.currentClientId === 'tilda')) {
+                    SUPABASE_URL = TILDA_URL;
+                    SUPABASE_KEY = TILDA_KEY;
                 } else {
                     SUPABASE_URL = LOANS_URL;
                     SUPABASE_KEY = LOANS_KEY;
@@ -491,8 +483,6 @@
                 window.history.replaceState({}, document.title, "/crm");
             }
         }
-        window.onload = checkAuth;
-
         // DATA
         async function loadLeads() {
             try {
