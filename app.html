@@ -175,24 +175,22 @@
             }
         });
 
-        async function init() {
+                async function init() {
             const user = tg.initDataUnsafe?.user;
             if (!user) return;
             document.getElementById('greeting').innerText = `Привет, ${user.first_name}!`;
             
             try {
-               if (user.id === ADMIN_TELEGRAM_ID) {
-    myClient = { client_id: BOT_CLIENT_ID, business_name: 'Админ-просмотр', paid_until: '2099-12-31' };
-    const resLeads = await fetch(`/api/get-leads?telegram_id=${user.id}&client_id=${BOT_CLIENT_ID}`);
-    myLeads = await resLeads.json();
-    if (!Array.isArray(myLeads)) myLeads = [];
-    setupAdminUI();
-}
+                if (user.id === ADMIN_TELEGRAM_ID) {
+                    myClient = { client_id: BOT_CLIENT_ID, business_name: 'Админ-просмотр', paid_until: '2099-12-31' };
+                    const resLeads = await fetch(`/api/get-leads?telegram_id=${user.id}&client_id=${BOT_CLIENT_ID}`);
+                    myLeads = await resLeads.json();
+                    if (!Array.isArray(myLeads)) myLeads = [];
+                    setupAdminUI();
                 } else {
                     const resClient = await fetch(`/api/get-my-client?owner_telegram_id=${user.id}`);
                     myClient = await resClient.json();
                     
-                    // ПРОВЕРКА: Если клиент зашел в ЧУЖОЙ бот — не показываем ничего
                     if (!myClient || myClient.client_id !== BOT_CLIENT_ID) {
                         myLeads = [];
                         document.getElementById('acc-plan-name').innerText = 'Гость';
