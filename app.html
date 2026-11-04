@@ -133,7 +133,6 @@
         </div>
     </div>
 
-    <!-- Модалки оставляем без изменений -->
     <div id="planModal" class="modal-overlay"><div class="modal-box"><div class="modal-title" id="modal-plan-name">Тариф</div><div style="margin-bottom: 20px;"><div class="price-main" id="modal-price-main">—</div><div id="modal-year-block" style="display: none;"><div class="price-year" id="modal-price-year">—</div><div class="price-note" id="modal-year-note">—</div></div></div><ul id="modal-plan-features" style="margin-bottom: 24px; list-style: none; padding-left: 0;"></ul><div id="modal-pay-buttons"><button class="btn btn-primary" onclick="payPlan('month')">Оплатить <span id="btn-month-price">0</span> ₽ (1 месяц)</button><button class="btn btn-primary" style="background: var(--success);" onclick="payPlan('year')">Оплатить <span id="btn-year-price">0</span> ₽ (12 месяцев)</button></div><button id="modal-connect-btn" class="btn btn-primary" style="display: none;" onclick="connectResultPlan()">Подключить</button><button class="btn btn-outline" onclick="closeModal('planModal')">Закрыть</button></div></div>
     <div id="leadModal" class="modal-overlay"><div class="modal-box"><div class="modal-title" id="modal-lead-name">Имя клиента</div><div class="lead-info-row">📞 <span id="modal-lead-phone">—</span></div><div class="lead-info-row" style="color: var(--hint);">🛠 Услуга: <span id="modal-lead-service">—</span></div><div style="font-size: 13px; font-weight: 600; color: var(--hint); margin-bottom: 6px; margin-top: 16px;">Запрос:</div><div class="lead-info-desc" id="modal-lead-problem">Описание...</div><div style="display: flex; gap: 10px; margin-bottom: 20px;"><a id="modal-btn-call" href="#" class="btn" style="background: #eff6ff; color: #1d4ed8; margin: 0; flex: 1;">📞 Позвонить</a><a id="modal-btn-tg" href="#" target="_blank" class="btn" style="background: #e0f2fe; color: #0284c7; margin: 0; flex: 1;">✈️ Telegram</a></div><button class="btn btn-outline" onclick="closeModal('leadModal')">Закрыть</button></div></div>
     <div id="cancelModal" class="modal-overlay"><div class="modal-box"><div class="modal-title">Отмена подписки</div><p style="font-size: 14px; color: var(--hint); margin-bottom: 16px;">Нам жаль, что вы уходите. Пожалуйста, напишите, что вас не устроило:</p><div class="form-group"><textarea id="cancel-reason" rows="3" placeholder="Ваш отзыв..."></textarea></div><button class="btn" style="background:#f1f5f9; color:var(--text);" onclick="submitCancel()">Отправить и отменить</button><button class="btn btn-outline" onclick="closeModal('cancelModal')">Остаться</button></div></div>
@@ -182,19 +181,36 @@
             document.getElementById('greeting').innerText = `Привет, ${user.first_name}!`;
             
             try {
-                // Теперь Mini App не лезет в базу напрямую, а стучится к серверу
-                const resClient = await fetch(`/api/get-my-client?owner_telegram_id=${user.id}`);
-                myClient = await resClient.json();
-
                 if (user.id === ADMIN_TELEGRAM_ID) {
-                    const resLeads = await fetch(`/api/get-leads`); // Админ видит всё
-                    myLeads = await resLeads.json();
-                    setupAdminUI();
-                } else if (myClient) {
-                    const resLeads = await fetch(`/api/get-leads?client_id=${myClient.client_id}`);
+                    myClient = { client_id: 'tilda', business_name: 'AI-Администратор', paid_until: '2099-12-31' };
+                    const resLeads = await fetch(`/api/get-leads?telegram_id=${user.id}&client_id=tilda`);
                     myLeads = await resLeads.json();
                     if (!Array.isArray(myLeads)) myLeads = [];
-                    setupClientUI(myClient);
+                    setupAdminUI();
+                } else {
+                    const resClient = await fetch(`/api/get-my-client?owner_telegram_id=${user.id}`);
+                    myClient = await resClient.json();
+                    
+                    // ПРОВЕРКА: Если клиент зашел в ЧУЖОЙ бот — не показываем ничего
+                    if (!myClient || myClient.client_id !== BOT_CLIENT_ID) {
+                        myLeads = [];
+                        document.getElementById('acc-plan-name').innerText = 'Гость';
+                        document.getElementById('acc-status').innerText = 'Нет доступа';
+                        document.getElementById('acc-date').innerText = '—';
+                        document.getElementById('acc-total-leads').innerText = '0';
+                        document.getElementById('acc-limit-text').innerText = '0 / 0';
+                        document.getElementById('acc-progress').style.width = '0%';
+                        renderLeads();
+                        renderPlans();
+                        return;
+                    }
+
+                    if (myClient) {
+                        const resLeads = await fetch(`/api/get-leads?telegram_id=${user.id}&client_id=${myClient.client_id}`);
+                        myLeads = await resLeads.json();
+                        if (!Array.isArray(myLeads)) myLeads = [];
+                        setupClientUI(myClient);
+                    }
                 }
                 renderPlans();
             } catch (e) { console.error(e); }
@@ -221,7 +237,7 @@
             document.getElementById('acc-date').innerText = 'Бессрочно';
             document.getElementById('acc-total-leads').innerText = myLeads.length;
             document.getElementById('limit-label').innerText = 'Всего клиентов:';
-            document.getElementById('acc-limit-text').innerText = myLeads.length; // Упрощенно
+            document.getElementById('acc-limit-text').innerText = myLeads.length;
             document.getElementById('acc-progress').style.width = '100%';
 
             updateFilterCounts();
@@ -391,7 +407,7 @@
             closeModal('supportModal');
         }
 
-function goToCRM() { window.location.href = '/crm?auth_success=1&telegram_id=' + tg.initDataUnsafe.user.id + '&view_client=' + BOT_CLIENT_ID; }
+        function goToCRM() { window.location.href = '/crm?auth_success=1&telegram_id=' + tg.initDataUnsafe.user.id + '&view_client=' + BOT_CLIENT_ID; }
         init();
     </script>
 </body>
