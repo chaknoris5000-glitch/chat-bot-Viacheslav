@@ -1511,7 +1511,7 @@ app.get('/api/get-leads', async (req, res) => {
 app.get('/api/get-my-client', async (req, res) => {
   try {
     const { owner_telegram_id } = req.query;
-    const url = `${COMMON_SUPABASE_URL}/rest/v1/clients?select=*&owner_telegram_id=eq.${owner_telegram_id}&limit=1`;
+    const url = `${COMMON_SUPABASE_URL}/rest/v1/clients?select=*&owner_telegram_id=eq.${owner_telegram_id}&client_id=eq.${CLIENT_ID}&limit=1`;
     const r = await fetch(url, {
       headers: { 'apikey': COMMON_SUPABASE_KEY, 'Authorization': `Bearer ${COMMON_SUPABASE_KEY}` }
     });
